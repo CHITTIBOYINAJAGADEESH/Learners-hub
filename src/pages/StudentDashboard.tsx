@@ -1,12 +1,37 @@
 
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, ArrowLeft, Play, CheckCircle, Award, User, BarChart3 } from 'lucide-react';
+import { BookOpen, ArrowLeft, Play, CheckCircle, Award, User, BarChart3, Settings, X, Camera, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+interface Course {
+  id: number;
+  title: string;
+  description: string;
+  progress: number;
+  totalModules: number;
+  completedModules: number;
+  image: string;
+  instructor: string;
+  lastAccessed: string;
+}
+
+interface StudentProfile {
+  name: string;
+  email: string;
+  profilePicture: string;
+}
+
+interface Certificate {
+  id: number;
+  courseName: string;
+  completionDate: string;
+  grade: string;
+}
 
 const StudentDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
-  const [enrolledCourses] = useState([
+  const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([
     {
       id: 1,
       title: "Introduction to Programming",
@@ -22,12 +47,26 @@ const StudentDashboard = () => {
       id: 2,
       title: "Web Development Basics",
       description: "HTML, CSS, and JavaScript fundamentals",
-      progress: 40,
+      progress: 100,
       totalModules: 8,
-      completedModules: 3,
+      completedModules: 8,
       image: "https://images.unsplash.com/photo-1547658719-da2b51169166?w=400&h=300&fit=crop",
       instructor: "Prof. Johnson",
       lastAccessed: "1 day ago"
+    }
+  ]);
+  const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [studentProfile, setStudentProfile] = useState<StudentProfile>({
+    name: 'Student User',
+    email: localStorage.getItem('userEmail') || 'student@learnershub.com',
+    profilePicture: 'https://images.unsplash.com/photo-1494790108755-2616b612b692?w=150&h=150&fit=crop&crop=face'
+  });
+  const [certificates, setCertificates] = useState<Certificate[]>([
+    {
+      id: 1,
+      courseName: "Web Development Basics",
+      completionDate: "2024-11-15",
+      grade: "A (95%)"
     }
   ]);
   const navigate = useNavigate();
@@ -40,13 +79,40 @@ const StudentDashboard = () => {
     
     if (!isLoggedIn || userRole !== 'student') {
       navigate('/login');
+      return;
+    }
+
+    // Load student profile
+    const savedProfile = localStorage.getItem('studentProfile');
+    if (savedProfile) {
+      setStudentProfile(JSON.parse(savedProfile));
+    }
+
+    // Load enrolled courses
+    const savedCourses = localStorage.getItem('studentCourses');
+    if (savedCourses) {
+      setEnrolledCourses(JSON.parse(savedCourses));
+    }
+
+    // Load certificates
+    const savedCertificates = localStorage.getItem('studentCertificates');
+    if (savedCertificates) {
+      setCertificates(JSON.parse(savedCertificates));
     }
   }, [navigate]);
+
+  // Save student data to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('studentCourses', JSON.stringify(enrolledCourses));
+  }, [enrolledCourses]);
+
+  useEffect(() => {
+    localStorage.setItem('studentCertificates', JSON.stringify(certificates));
+  }, [certificates]);
 
   const handleLogout = () => {
     localStorage.removeItem('userRole');
     localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('userEmail');
     toast({
       title: "Logged Out",
       description: "You have been successfully logged out.",
@@ -54,21 +120,172 @@ const StudentDashboard = () => {
     navigate('/');
   };
 
+  const handleProfileUpdate = (e: React.FormEvent) => {
+    e.preventDefault();
+    localStorage.setItem('studentProfile', JSON.stringify(studentProfile));
+    setShowProfileEdit(false);
+    toast({
+      title: "Profile Updated",
+      description: "Your profile has been updated successfully.",
+    });
+  };
+
+  const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        setStudentProfile(prev => ({
+          ...prev,
+          profilePicture: result
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleContinueCourse = (courseId: number) => {
     navigate(`/course/${courseId}`);
   };
 
+  const handleDownloadCertificate = (certificate: Certificate) => {
+    // Create a simple certificate HTML content
+    const certificateContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Certificate - ${certificate.courseName}</title>
+        <style>
+          body {
+            font-family: 'Times New Roman', serif;
+            text-align: center;
+            padding: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+          .certificate {
+            background: white;
+            padding: 60px;
+            border: 10px solid #667eea;
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.2);
+            max-width: 800px;
+            width: 100%;
+          }
+          .title {
+            font-size: 48px;
+            color: #667eea;
+            margin-bottom: 30px;
+            font-weight: bold;
+          }
+          .subtitle {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 40px;
+          }
+          .student-name {
+            font-size: 36px;
+            color: #764ba2;
+            font-weight: bold;
+            margin: 30px 0;
+            text-decoration: underline;
+          }
+          .course-name {
+            font-size: 28px;
+            color: #333;
+            margin: 30px 0;
+            font-style: italic;
+          }
+          .details {
+            font-size: 18px;
+            color: #666;
+            margin: 20px 0;
+          }
+          .signature {
+            margin-top: 60px;
+            border-top: 2px solid #333;
+            padding-top: 20px;
+            display: inline-block;
+            min-width: 200px;
+          }
+          .logo {
+            font-size: 24px;
+            color: #667eea;
+            font-weight: bold;
+            margin-bottom: 20px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="certificate">
+          <div class="logo">🎓 Learners Hub</div>
+          <div class="title">Certificate of Completion</div>
+          <div class="subtitle">This is to certify that</div>
+          <div class="student-name">${studentProfile.name}</div>
+          <div class="subtitle">has successfully completed the course</div>
+          <div class="course-name">${certificate.courseName}</div>
+          <div class="details">Completion Date: ${certificate.completionDate}</div>
+          <div class="details">Grade: ${certificate.grade}</div>
+          <div class="signature">
+            <div>Authorized Signature</div>
+            <div style="margin-top: 10px;">Learners Hub Administration</div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Create and download the certificate
+    const blob = new Blob([certificateContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Certificate-${certificate.courseName.replace(/\s+/g, '-')}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Certificate Downloaded",
+      description: "Your certificate has been downloaded successfully.",
+    });
+  };
+
+  const handleClaimCertificate = (courseId: number) => {
+    const course = enrolledCourses.find(c => c.id === courseId);
+    if (course && course.progress === 100) {
+      const newCertificate: Certificate = {
+        id: Date.now(),
+        courseName: course.title,
+        completionDate: new Date().toISOString().split('T')[0],
+        grade: "A (95%)"
+      };
+
+      setCertificates(prev => [...prev, newCertificate]);
+      toast({
+        title: "Certificate Generated",
+        description: "Congratulations! Your certificate is now available.",
+      });
+    }
+  };
+
   const stats = [
     { label: 'Enrolled Courses', value: enrolledCourses.length, color: 'lms-blue' },
-    { label: 'Completed Modules', value: 6, color: 'lms-green' },
-    { label: 'Certificates Earned', value: 1, color: 'lms-purple' },
-    { label: 'Average Progress', value: '58%', color: 'lms-yellow' }
+    { label: 'Completed Modules', value: enrolledCourses.reduce((sum, course) => sum + course.completedModules, 0), color: 'lms-green' },
+    { label: 'Certificates Earned', value: certificates.length, color: 'lms-purple' },
+    { label: 'Average Progress', value: `${Math.round(enrolledCourses.reduce((sum, course) => sum + course.progress, 0) / enrolledCourses.length) || 0}%`, color: 'lms-yellow' }
   ];
 
   const achievements = [
     { title: "First Course Enrolled", date: "Nov 2024", icon: BookOpen },
     { title: "First Module Completed", date: "Nov 2024", icon: CheckCircle },
-    { title: "Quiz Master", date: "Nov 2024", icon: Award }
+    { title: "Certificate Earned", date: "Nov 2024", icon: Award }
   ];
 
   return (
@@ -90,9 +307,20 @@ const StudentDashboard = () => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <Link to="/profile" className="text-gray-400 hover:text-white">
-                Profile
-              </Link>
+              <div className="flex items-center space-x-3">
+                <img
+                  src={studentProfile.profilePicture}
+                  alt="Student"
+                  className="w-10 h-10 rounded-full object-cover border-2 border-lms-purple"
+                />
+                <span className="text-white font-medium">{studentProfile.name}</span>
+              </div>
+              <button
+                onClick={() => setShowProfileEdit(true)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <Settings className="h-5 w-5" />
+              </button>
               <button onClick={handleLogout} className="lms-button-primary">
                 Logout
               </button>
@@ -126,12 +354,81 @@ const StudentDashboard = () => {
           </nav>
         </div>
 
+        {/* Profile Edit Modal */}
+        {showProfileEdit && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-lms-gray rounded-xl p-6 w-full max-w-md modal-content">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-poppins font-bold text-white">Edit Profile</h3>
+                <button 
+                  onClick={() => setShowProfileEdit(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <form onSubmit={handleProfileUpdate} className="space-y-4">
+                <div className="flex justify-center mb-4">
+                  <div className="relative">
+                    <img
+                      src={studentProfile.profilePicture}
+                      alt="Profile"
+                      className="w-24 h-24 rounded-full object-cover border-4 border-lms-purple"
+                    />
+                    <label className="absolute bottom-0 right-0 bg-lms-purple rounded-full p-2 cursor-pointer hover:bg-purple-600 transition-colors">
+                      <Camera className="h-4 w-4 text-white" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProfilePictureChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-gray-300 text-sm font-medium mb-2">Name</label>
+                  <input
+                    type="text"
+                    value={studentProfile.name}
+                    onChange={(e) => setStudentProfile(prev => ({ ...prev, name: e.target.value }))}
+                    className="lms-input"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 text-sm font-medium mb-2">Email</label>
+                  <input
+                    type="email"
+                    value={studentProfile.email}
+                    onChange={(e) => setStudentProfile(prev => ({ ...prev, email: e.target.value }))}
+                    className="lms-input"
+                    required
+                  />
+                </div>
+                <div className="flex space-x-3 pt-4">
+                  <button type="submit" className="lms-button-primary flex-1">
+                    Save Changes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowProfileEdit(false)}
+                    className="lms-button bg-gray-600 hover:bg-gray-700 flex-1"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
             <div>
               <h1 className="text-3xl font-poppins font-bold text-white mb-2">
-                Welcome back, Student!
+                Welcome back, {studentProfile.name}!
               </h1>
               <p className="text-gray-400">
                 Continue your learning journey
@@ -167,7 +464,7 @@ const StudentDashboard = () => {
                       className="w-16 h-16 object-cover rounded-lg"
                     />
                     <div className="flex-1">
-                      <h3 className="text-white font-medium">{course.title}</h3>
+                      <h3 className="text-white font-medium text-wrap-break">{course.title}</h3>
                       <p className="text-gray-400 text-sm">Progress: {course.progress}%</p>
                       <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
                         <div 
@@ -199,7 +496,7 @@ const StudentDashboard = () => {
                         <Icon className="h-5 w-5 text-lms-green" />
                       </div>
                       <div>
-                        <h4 className="text-white font-medium text-sm">{achievement.title}</h4>
+                        <h4 className="text-white font-medium text-sm text-wrap-break">{achievement.title}</h4>
                         <p className="text-gray-400 text-xs">{achievement.date}</p>
                       </div>
                     </div>
@@ -219,7 +516,7 @@ const StudentDashboard = () => {
             </div>
 
             {/* Courses Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="course-grid">
               {enrolledCourses.map((course) => (
                 <div key={course.id} className="lms-card">
                   <img
@@ -227,11 +524,11 @@ const StudentDashboard = () => {
                     alt={course.title}
                     className="w-full h-48 object-cover rounded-lg mb-4"
                   />
-                  <h3 className="text-xl font-poppins font-bold text-white mb-2">
+                  <h3 className="text-xl font-poppins font-bold text-white mb-2 line-clamp-2 text-wrap-break">
                     {course.title}
                   </h3>
-                  <p className="text-gray-400 mb-2">{course.description}</p>
-                  <p className="text-gray-500 text-sm mb-4">Instructor: {course.instructor}</p>
+                  <p className="text-gray-400 mb-2 line-clamp-2 text-wrap-break">{course.description}</p>
+                  <p className="text-gray-500 text-sm mb-4 text-wrap-break">Instructor: {course.instructor}</p>
                   
                   <div className="mb-4">
                     <div className="flex justify-between text-sm text-gray-400 mb-2">
@@ -255,7 +552,10 @@ const StudentDashboard = () => {
                       <span>Continue</span>
                     </button>
                     {course.progress === 100 && (
-                      <button className="lms-button bg-lms-green/20 text-lms-green hover:bg-lms-green/30 flex items-center space-x-1">
+                      <button 
+                        onClick={() => handleClaimCertificate(course.id)}
+                        className="lms-button bg-lms-green/20 text-lms-green hover:bg-lms-green/30 flex items-center space-x-1"
+                      >
                         <Award className="h-4 w-4" />
                         <span>Certificate</span>
                       </button>
@@ -281,7 +581,7 @@ const StudentDashboard = () => {
                   {enrolledCourses.map((course) => (
                     <div key={course.id}>
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-gray-300">{course.title}</span>
+                        <span className="text-gray-300 text-wrap-break">{course.title}</span>
                         <span className="text-lms-green">{course.progress}%</span>
                       </div>
                       <div className="w-full bg-gray-700 rounded-full h-3">
@@ -324,35 +624,45 @@ const StudentDashboard = () => {
               <p className="text-gray-400">Earned certificates and achievements</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Sample Certificate */}
-              <div className="lms-card border-2 border-lms-green/30">
-                <div className="text-center">
-                  <Award className="h-16 w-16 text-lms-green mx-auto mb-4" />
-                  <h3 className="text-xl font-poppins font-bold text-white mb-2">
-                    Programming Fundamentals
-                  </h3>
-                  <p className="text-gray-400 mb-4">Completed: Nov 15, 2024</p>
-                  <p className="text-sm text-gray-500 mb-4">Grade: A (95%)</p>
-                  <button className="lms-button-success w-full">
-                    Download Certificate
-                  </button>
+            <div className="course-grid">
+              {/* Earned Certificates */}
+              {certificates.map((certificate) => (
+                <div key={certificate.id} className="lms-card border-2 border-lms-green/30">
+                  <div className="text-center">
+                    <Award className="h-16 w-16 text-lms-green mx-auto mb-4" />
+                    <h3 className="text-xl font-poppins font-bold text-white mb-2 text-wrap-break">
+                      {certificate.courseName}
+                    </h3>
+                    <p className="text-gray-400 mb-4">Completed: {certificate.completionDate}</p>
+                    <p className="text-sm text-gray-500 mb-4">Grade: {certificate.grade}</p>
+                    <button 
+                      onClick={() => handleDownloadCertificate(certificate)}
+                      className="lms-button-success w-full flex items-center justify-center space-x-2"
+                    >
+                      <Download className="h-4 w-4" />
+                      <span>Download Certificate</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ))}
 
-              {/* Upcoming Certificates */}
-              <div className="lms-card border-2 border-gray-600 opacity-75">
-                <div className="text-center">
-                  <Award className="h-16 w-16 text-gray-500 mx-auto mb-4" />
-                  <h3 className="text-xl font-poppins font-bold text-gray-400 mb-2">
-                    Web Development
-                  </h3>
-                  <p className="text-gray-500 mb-4">40% Complete</p>
-                  <button disabled className="lms-button bg-gray-600 text-gray-400 w-full cursor-not-allowed">
-                    In Progress
-                  </button>
-                </div>
-              </div>
+              {/* In Progress Courses */}
+              {enrolledCourses
+                .filter(course => course.progress < 100)
+                .map((course) => (
+                  <div key={`progress-${course.id}`} className="lms-card border-2 border-gray-600 opacity-75">
+                    <div className="text-center">
+                      <Award className="h-16 w-16 text-gray-500 mx-auto mb-4" />
+                      <h3 className="text-xl font-poppins font-bold text-gray-400 mb-2 text-wrap-break">
+                        {course.title}
+                      </h3>
+                      <p className="text-gray-500 mb-4">{course.progress}% Complete</p>
+                      <button disabled className="lms-button bg-gray-600 text-gray-400 w-full cursor-not-allowed">
+                        In Progress
+                      </button>
+                    </div>
+                  </div>
+                ))}
             </div>
           </div>
         )}

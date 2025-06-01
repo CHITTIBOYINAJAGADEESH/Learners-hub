@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, ArrowLeft, Plus, Users, BarChart3, Settings, Trash2, Edit, Eye, Save, X } from 'lucide-react';
+import { BookOpen, ArrowLeft, Plus, Users, BarChart3, Settings, Trash2, Edit, Eye, Save, X, Camera, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Course {
@@ -16,35 +16,24 @@ interface Course {
   status?: 'active' | 'draft';
 }
 
+interface AdminProfile {
+  name: string;
+  email: string;
+  profilePicture: string;
+}
+
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
-  const [courses, setCourses] = useState<Course[]>([
-    {
-      id: 1,
-      title: "Introduction to Programming",
-      description: "Learn the fundamentals of programming with hands-on exercises and real-world examples.",
-      modules: 5,
-      students: 12,
-      image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop",
-      instructor: "Dr. Smith",
-      createdDate: "2024-01-15",
-      status: 'active'
-    },
-    {
-      id: 2,
-      title: "Web Development Basics",
-      description: "HTML, CSS, and JavaScript fundamentals for building modern web applications.",
-      modules: 8,
-      students: 8,
-      image: "https://images.unsplash.com/photo-1547658719-da2b51169166?w=400&h=300&fit=crop",
-      instructor: "Prof. Johnson",
-      createdDate: "2024-02-01",
-      status: 'active'
-    }
-  ]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [showCourseForm, setShowCourseForm] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [viewingCourse, setViewingCourse] = useState<Course | null>(null);
+  const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [adminProfile, setAdminProfile] = useState<AdminProfile>({
+    name: 'Admin User',
+    email: localStorage.getItem('userEmail') || 'admin@learnershub.com',
+    profilePicture: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
+  });
   const [newCourse, setNewCourse] = useState({
     title: '',
     description: '',
@@ -63,13 +52,61 @@ const AdminDashboard = () => {
     
     if (!isLoggedIn || userRole !== 'admin') {
       navigate('/login');
+      return;
+    }
+
+    // Load persistent courses from localStorage
+    const savedCourses = localStorage.getItem('adminCourses');
+    if (savedCourses) {
+      setCourses(JSON.parse(savedCourses));
+    } else {
+      // Initialize with default courses if none exist
+      const defaultCourses = [
+        {
+          id: 1,
+          title: "Introduction to Programming",
+          description: "Learn the fundamentals of programming with hands-on exercises and real-world examples.",
+          modules: 5,
+          students: 12,
+          image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop",
+          instructor: "Dr. Smith",
+          createdDate: "2024-01-15",
+          status: 'active' as const
+        },
+        {
+          id: 2,
+          title: "Web Development Basics",
+          description: "HTML, CSS, and JavaScript fundamentals for building modern web applications.",
+          modules: 8,
+          students: 8,
+          image: "https://images.unsplash.com/photo-1547658719-da2b51169166?w=400&h=300&fit=crop",
+          instructor: "Prof. Johnson",
+          createdDate: "2024-02-01",
+          status: 'active' as const
+        }
+      ];
+      setCourses(defaultCourses);
+      localStorage.setItem('adminCourses', JSON.stringify(defaultCourses));
+    }
+
+    // Load admin profile from localStorage
+    const savedProfile = localStorage.getItem('adminProfile');
+    if (savedProfile) {
+      setAdminProfile(JSON.parse(savedProfile));
     }
   }, [navigate]);
 
+  // Save courses to localStorage whenever courses change
+  useEffect(() => {
+    if (courses.length > 0) {
+      localStorage.setItem('adminCourses', JSON.stringify(courses));
+    }
+  }, [courses]);
+
   const handleLogout = () => {
+    // Don't clear course data, just clear session
     localStorage.removeItem('userRole');
     localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('userEmail');
     toast({
       title: "Logged Out",
       description: "You have been successfully logged out.",
@@ -87,7 +124,8 @@ const AdminDashboard = () => {
       createdDate: new Date().toISOString().split('T')[0]
     };
     
-    setCourses([...courses, course]);
+    const updatedCourses = [...courses, course];
+    setCourses(updatedCourses);
     setNewCourse({ title: '', description: '', image: '', modules: 0, instructor: '', status: 'draft' });
     setShowCourseForm(false);
     
@@ -130,7 +168,9 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteCourse = (courseId: number) => {
-    setCourses(courses.filter(course => course.id !== courseId));
+    const updatedCourses = courses.filter(course => course.id !== courseId);
+    setCourses(updatedCourses);
+    localStorage.setItem('adminCourses', JSON.stringify(updatedCourses));
     toast({
       title: "Course Deleted",
       description: "Course has been removed successfully.",
@@ -139,6 +179,31 @@ const AdminDashboard = () => {
 
   const handleViewCourse = (course: Course) => {
     setViewingCourse(course);
+  };
+
+  const handleProfileUpdate = (e: React.FormEvent) => {
+    e.preventDefault();
+    localStorage.setItem('adminProfile', JSON.stringify(adminProfile));
+    setShowProfileEdit(false);
+    toast({
+      title: "Profile Updated",
+      description: "Your profile has been updated successfully.",
+    });
+  };
+
+  const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        setAdminProfile(prev => ({
+          ...prev,
+          profilePicture: result
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const stats = [
@@ -167,9 +232,20 @@ const AdminDashboard = () => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <Link to="/profile" className="text-gray-400 hover:text-white">
-                Profile
-              </Link>
+              <div className="flex items-center space-x-3">
+                <img
+                  src={adminProfile.profilePicture}
+                  alt="Admin"
+                  className="w-10 h-10 rounded-full object-cover border-2 border-lms-blue"
+                />
+                <span className="text-white font-medium">{adminProfile.name}</span>
+              </div>
+              <button
+                onClick={() => setShowProfileEdit(true)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <Settings className="h-5 w-5" />
+              </button>
               <button onClick={handleLogout} className="lms-button-primary">
                 Logout
               </button>
@@ -203,12 +279,81 @@ const AdminDashboard = () => {
           </nav>
         </div>
 
+        {/* Profile Edit Modal */}
+        {showProfileEdit && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-lms-gray rounded-xl p-6 w-full max-w-md modal-content">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-poppins font-bold text-white">Edit Profile</h3>
+                <button 
+                  onClick={() => setShowProfileEdit(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <form onSubmit={handleProfileUpdate} className="space-y-4">
+                <div className="flex justify-center mb-4">
+                  <div className="relative">
+                    <img
+                      src={adminProfile.profilePicture}
+                      alt="Profile"
+                      className="w-24 h-24 rounded-full object-cover border-4 border-lms-blue"
+                    />
+                    <label className="absolute bottom-0 right-0 bg-lms-blue rounded-full p-2 cursor-pointer hover:bg-blue-600 transition-colors">
+                      <Camera className="h-4 w-4 text-white" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProfilePictureChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-gray-300 text-sm font-medium mb-2">Name</label>
+                  <input
+                    type="text"
+                    value={adminProfile.name}
+                    onChange={(e) => setAdminProfile(prev => ({ ...prev, name: e.target.value }))}
+                    className="lms-input"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 text-sm font-medium mb-2">Email</label>
+                  <input
+                    type="email"
+                    value={adminProfile.email}
+                    onChange={(e) => setAdminProfile(prev => ({ ...prev, email: e.target.value }))}
+                    className="lms-input"
+                    required
+                  />
+                </div>
+                <div className="flex space-x-3 pt-4">
+                  <button type="submit" className="lms-button-primary flex-1">
+                    Save Changes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowProfileEdit(false)}
+                    className="lms-button bg-gray-600 hover:bg-gray-700 flex-1"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
             <div>
               <h1 className="text-3xl font-poppins font-bold text-white mb-2">
-                Welcome, Admin!
+                Welcome, {adminProfile.name}!
               </h1>
               <p className="text-gray-400">
                 Manage your learning platform from this dashboard
@@ -273,7 +418,7 @@ const AdminDashboard = () => {
             {/* Course Form Modal */}
             {(showCourseForm || editingCourse) && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className="bg-lms-gray rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div className="bg-lms-gray rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto modal-content">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xl font-poppins font-bold text-white">
                       {editingCourse ? 'Edit Course' : 'Add New Course'}
@@ -297,7 +442,7 @@ const AdminDashboard = () => {
                         placeholder="Enter course title"
                         value={newCourse.title}
                         onChange={(e) => setNewCourse({...newCourse, title: e.target.value})}
-                        className="lms-input"
+                        className="lms-input text-wrap-break"
                         required
                       />
                     </div>
@@ -307,7 +452,7 @@ const AdminDashboard = () => {
                         placeholder="Enter detailed course description"
                         value={newCourse.description}
                         onChange={(e) => setNewCourse({...newCourse, description: e.target.value})}
-                        className="lms-input min-h-[100px] resize-none"
+                        className="lms-input min-h-[100px] resize-none text-wrap-break"
                         rows={4}
                         required
                       />
@@ -319,7 +464,7 @@ const AdminDashboard = () => {
                         placeholder="https://example.com/image.jpg"
                         value={newCourse.image}
                         onChange={(e) => setNewCourse({...newCourse, image: e.target.value})}
-                        className="lms-input"
+                        className="lms-input text-wrap-break"
                       />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -343,7 +488,7 @@ const AdminDashboard = () => {
                           placeholder="Instructor name"
                           value={newCourse.instructor}
                           onChange={(e) => setNewCourse({...newCourse, instructor: e.target.value})}
-                          className="lms-input"
+                          className="lms-input text-wrap-break"
                         />
                       </div>
                     </div>
@@ -383,9 +528,9 @@ const AdminDashboard = () => {
             {/* Course View Modal */}
             {viewingCourse && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className="bg-lms-gray rounded-xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+                <div className="bg-lms-gray rounded-xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto modal-content">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-2xl font-poppins font-bold text-white">Course Details</h3>
+                    <h3 className="text-2xl font-poppins font-bold text-white text-wrap-break">Course Details</h3>
                     <button 
                       onClick={() => setViewingCourse(null)}
                       className="text-gray-400 hover:text-white"
@@ -402,8 +547,8 @@ const AdminDashboard = () => {
                     />
                     
                     <div>
-                      <h4 className="text-xl font-poppins font-bold text-white mb-2">{viewingCourse.title}</h4>
-                      <p className="text-gray-300 leading-relaxed">{viewingCourse.description}</p>
+                      <h4 className="text-xl font-poppins font-bold text-white mb-2 text-wrap-break">{viewingCourse.title}</h4>
+                      <p className="text-gray-300 leading-relaxed text-wrap-break">{viewingCourse.description}</p>
                     </div>
                     
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -430,7 +575,7 @@ const AdminDashboard = () => {
                     {viewingCourse.instructor && (
                       <div className="p-4 bg-lms-dark rounded-lg">
                         <p className="text-gray-400 text-sm mb-1">Assigned Instructor</p>
-                        <p className="text-white font-medium">{viewingCourse.instructor}</p>
+                        <p className="text-white font-medium text-wrap-break">{viewingCourse.instructor}</p>
                       </div>
                     )}
                     
@@ -462,7 +607,7 @@ const AdminDashboard = () => {
             )}
 
             {/* Courses Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="course-grid">
               {courses.map((course) => (
                 <div key={course.id} className="lms-card group hover:shadow-2xl transition-all duration-300">
                   <div className="relative overflow-hidden rounded-lg mb-4">
@@ -481,10 +626,10 @@ const AdminDashboard = () => {
                   </div>
                   
                   <div className="space-y-3">
-                    <h3 className="text-lg font-poppins font-bold text-white line-clamp-2 hover:text-lms-blue transition-colors">
+                    <h3 className="text-lg font-poppins font-bold text-white line-clamp-2 hover:text-lms-blue transition-colors text-wrap-break">
                       {course.title}
                     </h3>
-                    <p className="text-gray-400 text-sm line-clamp-3 leading-relaxed">
+                    <p className="text-gray-400 text-sm line-clamp-3 leading-relaxed text-wrap-break">
                       {course.description}
                     </p>
                     
@@ -500,7 +645,7 @@ const AdminDashboard = () => {
                     </div>
                     
                     {course.instructor && (
-                      <p className="text-gray-500 text-xs">Instructor: {course.instructor}</p>
+                      <p className="text-gray-500 text-xs text-wrap-break">Instructor: {course.instructor}</p>
                     )}
                     
                     <div className="flex space-x-2 pt-2">
@@ -551,19 +696,19 @@ const AdminDashboard = () => {
                   </thead>
                   <tbody className="text-gray-300">
                     <tr className="border-b border-gray-800">
-                      <td className="py-3">john.doe@example.com</td>
+                      <td className="py-3 text-wrap-break">john.doe@example.com</td>
                       <td className="py-3">Student</td>
                       <td className="py-3">2 hours ago</td>
                       <td className="py-3"><span className="text-lms-green">Active</span></td>
                     </tr>
                     <tr className="border-b border-gray-800">
-                      <td className="py-3">jane.instructor@example.com</td>
+                      <td className="py-3 text-wrap-break">jane.instructor@example.com</td>
                       <td className="py-3">Instructor</td>
                       <td className="py-3">1 day ago</td>
                       <td className="py-3"><span className="text-lms-green">Active</span></td>
                     </tr>
                     <tr className="border-b border-gray-800">
-                      <td className="py-3">mike.student@example.com</td>
+                      <td className="py-3 text-wrap-break">mike.student@example.com</td>
                       <td className="py-3">Student</td>
                       <td className="py-3">3 days ago</td>
                       <td className="py-3"><span className="text-gray-500">Inactive</span></td>
@@ -585,7 +730,7 @@ const AdminDashboard = () => {
                 <h3 className="text-lg font-poppins font-semibold text-white mb-4">Course Enrollment</h3>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-300">Introduction to Programming</span>
+                    <span className="text-gray-300 text-wrap-break">Introduction to Programming</span>
                     <span className="text-lms-blue">12 students</span>
                   </div>
                   <div className="w-full bg-gray-700 rounded-full h-2">
@@ -593,7 +738,7 @@ const AdminDashboard = () => {
                   </div>
                   
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-300">Web Development Basics</span>
+                    <span className="text-gray-300 text-wrap-break">Web Development Basics</span>
                     <span className="text-lms-green">8 students</span>
                   </div>
                   <div className="w-full bg-gray-700 rounded-full h-2">
