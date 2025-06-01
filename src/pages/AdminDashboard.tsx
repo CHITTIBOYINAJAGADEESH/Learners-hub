@@ -1,35 +1,57 @@
 
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, ArrowLeft, Plus, Users, BarChart3, Settings, Trash2, Edit, Eye } from 'lucide-react';
+import { BookOpen, ArrowLeft, Plus, Users, BarChart3, Settings, Trash2, Edit, Eye, Save, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+interface Course {
+  id: number;
+  title: string;
+  description: string;
+  modules: number;
+  students: number;
+  image: string;
+  instructor?: string;
+  createdDate?: string;
+  status?: 'active' | 'draft';
+}
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
-  const [courses, setCourses] = useState([
+  const [courses, setCourses] = useState<Course[]>([
     {
       id: 1,
       title: "Introduction to Programming",
-      description: "Learn the fundamentals of programming",
+      description: "Learn the fundamentals of programming with hands-on exercises and real-world examples.",
       modules: 5,
       students: 12,
-      image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop"
+      image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop",
+      instructor: "Dr. Smith",
+      createdDate: "2024-01-15",
+      status: 'active'
     },
     {
       id: 2,
       title: "Web Development Basics",
-      description: "HTML, CSS, and JavaScript fundamentals",
+      description: "HTML, CSS, and JavaScript fundamentals for building modern web applications.",
       modules: 8,
       students: 8,
-      image: "https://images.unsplash.com/photo-1547658719-da2b51169166?w=400&h=300&fit=crop"
+      image: "https://images.unsplash.com/photo-1547658719-da2b51169166?w=400&h=300&fit=crop",
+      instructor: "Prof. Johnson",
+      createdDate: "2024-02-01",
+      status: 'active'
     }
   ]);
   const [showCourseForm, setShowCourseForm] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [viewingCourse, setViewingCourse] = useState<Course | null>(null);
   const [newCourse, setNewCourse] = useState({
     title: '',
     description: '',
     image: '',
-    modules: []
+    modules: 0,
+    instructor: '',
+    status: 'draft' as 'active' | 'draft'
   });
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -57,21 +79,53 @@ const AdminDashboard = () => {
 
   const handleAddCourse = (e: React.FormEvent) => {
     e.preventDefault();
-    const course = {
-      id: courses.length + 1,
+    const course: Course = {
+      id: Date.now(),
       ...newCourse,
-      modules: 0,
       students: 0,
-      image: newCourse.image || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop"
+      image: newCourse.image || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop",
+      createdDate: new Date().toISOString().split('T')[0]
     };
     
     setCourses([...courses, course]);
-    setNewCourse({ title: '', description: '', image: '', modules: [] });
+    setNewCourse({ title: '', description: '', image: '', modules: 0, instructor: '', status: 'draft' });
     setShowCourseForm(false);
     
     toast({
       title: "Course Added",
       description: "New course has been created successfully.",
+    });
+  };
+
+  const handleEditCourse = (course: Course) => {
+    setEditingCourse(course);
+    setNewCourse({
+      title: course.title,
+      description: course.description,
+      image: course.image,
+      modules: course.modules,
+      instructor: course.instructor || '',
+      status: course.status || 'active'
+    });
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCourse) return;
+
+    const updatedCourses = courses.map(course => 
+      course.id === editingCourse.id 
+        ? { ...course, ...newCourse }
+        : course
+    );
+    
+    setCourses(updatedCourses);
+    setEditingCourse(null);
+    setNewCourse({ title: '', description: '', image: '', modules: 0, instructor: '', status: 'draft' });
+    
+    toast({
+      title: "Course Updated",
+      description: "Course has been updated successfully.",
     });
   };
 
@@ -81,6 +135,10 @@ const AdminDashboard = () => {
       title: "Course Deleted",
       description: "Course has been removed successfully.",
     });
+  };
+
+  const handleViewCourse = (course: Course) => {
+    setViewingCourse(course);
   };
 
   const stats = [
@@ -213,41 +271,105 @@ const AdminDashboard = () => {
             </div>
 
             {/* Course Form Modal */}
-            {showCourseForm && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                <div className="bg-lms-gray rounded-xl p-6 w-full max-w-md mx-4">
-                  <h3 className="text-xl font-poppins font-bold text-white mb-4">Add New Course</h3>
-                  <form onSubmit={handleAddCourse} className="space-y-4">
-                    <input
-                      type="text"
-                      placeholder="Course Title"
-                      value={newCourse.title}
-                      onChange={(e) => setNewCourse({...newCourse, title: e.target.value})}
-                      className="lms-input"
-                      required
-                    />
-                    <textarea
-                      placeholder="Course Description"
-                      value={newCourse.description}
-                      onChange={(e) => setNewCourse({...newCourse, description: e.target.value})}
-                      className="lms-input"
-                      rows={3}
-                      required
-                    />
-                    <input
-                      type="url"
-                      placeholder="Course Image URL (optional)"
-                      value={newCourse.image}
-                      onChange={(e) => setNewCourse({...newCourse, image: e.target.value})}
-                      className="lms-input"
-                    />
-                    <div className="flex space-x-3">
-                      <button type="submit" className="lms-button-primary flex-1">
-                        Add Course
+            {(showCourseForm || editingCourse) && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-lms-gray rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-poppins font-bold text-white">
+                      {editingCourse ? 'Edit Course' : 'Add New Course'}
+                    </h3>
+                    <button 
+                      onClick={() => {
+                        setShowCourseForm(false);
+                        setEditingCourse(null);
+                        setNewCourse({ title: '', description: '', image: '', modules: 0, instructor: '', status: 'draft' });
+                      }}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <form onSubmit={editingCourse ? handleSaveEdit : handleAddCourse} className="space-y-4">
+                    <div>
+                      <label className="block text-gray-300 text-sm font-medium mb-2">Course Title</label>
+                      <input
+                        type="text"
+                        placeholder="Enter course title"
+                        value={newCourse.title}
+                        onChange={(e) => setNewCourse({...newCourse, title: e.target.value})}
+                        className="lms-input"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-300 text-sm font-medium mb-2">Course Description</label>
+                      <textarea
+                        placeholder="Enter detailed course description"
+                        value={newCourse.description}
+                        onChange={(e) => setNewCourse({...newCourse, description: e.target.value})}
+                        className="lms-input min-h-[100px] resize-none"
+                        rows={4}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-300 text-sm font-medium mb-2">Course Image URL</label>
+                      <input
+                        type="url"
+                        placeholder="https://example.com/image.jpg"
+                        value={newCourse.image}
+                        onChange={(e) => setNewCourse({...newCourse, image: e.target.value})}
+                        className="lms-input"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-gray-300 text-sm font-medium mb-2">Number of Modules</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="20"
+                          placeholder="5"
+                          value={newCourse.modules || ''}
+                          onChange={(e) => setNewCourse({...newCourse, modules: parseInt(e.target.value) || 0})}
+                          className="lms-input"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-300 text-sm font-medium mb-2">Assigned Instructor</label>
+                        <input
+                          type="text"
+                          placeholder="Instructor name"
+                          value={newCourse.instructor}
+                          onChange={(e) => setNewCourse({...newCourse, instructor: e.target.value})}
+                          className="lms-input"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-gray-300 text-sm font-medium mb-2">Course Status</label>
+                      <select
+                        value={newCourse.status}
+                        onChange={(e) => setNewCourse({...newCourse, status: e.target.value as 'active' | 'draft'})}
+                        className="lms-input"
+                      >
+                        <option value="draft">Draft</option>
+                        <option value="active">Active</option>
+                      </select>
+                    </div>
+                    <div className="flex space-x-3 pt-4">
+                      <button type="submit" className="lms-button-primary flex-1 flex items-center justify-center space-x-2">
+                        <Save className="h-4 w-4" />
+                        <span>{editingCourse ? 'Update Course' : 'Create Course'}</span>
                       </button>
                       <button
                         type="button"
-                        onClick={() => setShowCourseForm(false)}
+                        onClick={() => {
+                          setShowCourseForm(false);
+                          setEditingCourse(null);
+                          setNewCourse({ title: '', description: '', image: '', modules: 0, instructor: '', status: 'draft' });
+                        }}
                         className="lms-button bg-gray-600 hover:bg-gray-700 flex-1"
                       >
                         Cancel
@@ -258,41 +380,151 @@ const AdminDashboard = () => {
               </div>
             )}
 
+            {/* Course View Modal */}
+            {viewingCourse && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-lms-gray rounded-xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-2xl font-poppins font-bold text-white">Course Details</h3>
+                    <button 
+                      onClick={() => setViewingCourse(null)}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      <X className="h-6 w-6" />
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    <img
+                      src={viewingCourse.image}
+                      alt={viewingCourse.title}
+                      className="w-full h-64 object-cover rounded-lg"
+                    />
+                    
+                    <div>
+                      <h4 className="text-xl font-poppins font-bold text-white mb-2">{viewingCourse.title}</h4>
+                      <p className="text-gray-300 leading-relaxed">{viewingCourse.description}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center p-3 bg-lms-dark rounded-lg">
+                        <p className="text-gray-400 text-sm">Modules</p>
+                        <p className="text-lms-blue text-xl font-bold">{viewingCourse.modules}</p>
+                      </div>
+                      <div className="text-center p-3 bg-lms-dark rounded-lg">
+                        <p className="text-gray-400 text-sm">Students</p>
+                        <p className="text-lms-green text-xl font-bold">{viewingCourse.students}</p>
+                      </div>
+                      <div className="text-center p-3 bg-lms-dark rounded-lg">
+                        <p className="text-gray-400 text-sm">Status</p>
+                        <p className={`text-xl font-bold ${viewingCourse.status === 'active' ? 'text-lms-green' : 'text-lms-yellow'}`}>
+                          {viewingCourse.status}
+                        </p>
+                      </div>
+                      <div className="text-center p-3 bg-lms-dark rounded-lg">
+                        <p className="text-gray-400 text-sm">Created</p>
+                        <p className="text-gray-300 text-sm font-medium">{viewingCourse.createdDate}</p>
+                      </div>
+                    </div>
+                    
+                    {viewingCourse.instructor && (
+                      <div className="p-4 bg-lms-dark rounded-lg">
+                        <p className="text-gray-400 text-sm mb-1">Assigned Instructor</p>
+                        <p className="text-white font-medium">{viewingCourse.instructor}</p>
+                      </div>
+                    )}
+                    
+                    <div className="flex space-x-3">
+                      <button 
+                        onClick={() => {
+                          setViewingCourse(null);
+                          handleEditCourse(viewingCourse);
+                        }}
+                        className="lms-button bg-lms-blue/20 text-lms-blue hover:bg-lms-blue/30 flex-1 flex items-center justify-center space-x-2"
+                      >
+                        <Edit className="h-4 w-4" />
+                        <span>Edit Course</span>
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setViewingCourse(null);
+                          handleDeleteCourse(viewingCourse.id);
+                        }}
+                        className="lms-button bg-red-500/20 text-red-400 hover:bg-red-500/30 flex items-center justify-center space-x-2 px-6"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Courses Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {courses.map((course) => (
-                <div key={course.id} className="lms-card">
-                  <img
-                    src={course.image}
-                    alt={course.title}
-                    className="w-full h-48 object-cover rounded-lg mb-4"
-                  />
-                  <h3 className="text-xl font-poppins font-bold text-white mb-2">
-                    {course.title}
-                  </h3>
-                  <p className="text-gray-400 mb-4">{course.description}</p>
-                  
-                  <div className="flex justify-between text-sm text-gray-500 mb-4">
-                    <span>{course.modules} modules</span>
-                    <span>{course.students} students</span>
+                <div key={course.id} className="lms-card group hover:shadow-2xl transition-all duration-300">
+                  <div className="relative overflow-hidden rounded-lg mb-4">
+                    <img
+                      src={course.image}
+                      alt={course.title}
+                      className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-medium ${
+                      course.status === 'active' 
+                        ? 'bg-lms-green/20 text-lms-green' 
+                        : 'bg-lms-yellow/20 text-lms-yellow'
+                    }`}>
+                      {course.status}
+                    </div>
                   </div>
                   
-                  <div className="flex space-x-2">
-                    <button className="lms-button bg-lms-blue/20 text-lms-blue hover:bg-lms-blue/30 flex-1 flex items-center justify-center space-x-1">
-                      <Eye className="h-4 w-4" />
-                      <span>View</span>
-                    </button>
-                    <button className="lms-button bg-lms-green/20 text-lms-green hover:bg-lms-green/30 flex-1 flex items-center justify-center space-x-1">
-                      <Edit className="h-4 w-4" />
-                      <span>Edit</span>
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteCourse(course.id)}
-                      className="lms-button bg-red-500/20 text-red-400 hover:bg-red-500/30 flex-1 flex items-center justify-center space-x-1"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      <span>Delete</span>
-                    </button>
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-poppins font-bold text-white line-clamp-2 hover:text-lms-blue transition-colors">
+                      {course.title}
+                    </h3>
+                    <p className="text-gray-400 text-sm line-clamp-3 leading-relaxed">
+                      {course.description}
+                    </p>
+                    
+                    <div className="flex justify-between text-sm text-gray-500">
+                      <span className="flex items-center space-x-1">
+                        <BookOpen className="h-4 w-4" />
+                        <span>{course.modules} modules</span>
+                      </span>
+                      <span className="flex items-center space-x-1">
+                        <Users className="h-4 w-4" />
+                        <span>{course.students} students</span>
+                      </span>
+                    </div>
+                    
+                    {course.instructor && (
+                      <p className="text-gray-500 text-xs">Instructor: {course.instructor}</p>
+                    )}
+                    
+                    <div className="flex space-x-2 pt-2">
+                      <button 
+                        onClick={() => handleViewCourse(course)}
+                        className="lms-button bg-lms-blue/20 text-lms-blue hover:bg-lms-blue/30 flex-1 flex items-center justify-center space-x-1 text-sm"
+                      >
+                        <Eye className="h-4 w-4" />
+                        <span>View</span>
+                      </button>
+                      <button 
+                        onClick={() => handleEditCourse(course)}
+                        className="lms-button bg-lms-green/20 text-lms-green hover:bg-lms-green/30 flex-1 flex items-center justify-center space-x-1 text-sm"
+                      >
+                        <Edit className="h-4 w-4" />
+                        <span>Edit</span>
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteCourse(course.id)}
+                        className="lms-button bg-red-500/20 text-red-400 hover:bg-red-500/30 flex items-center justify-center px-3 text-sm"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

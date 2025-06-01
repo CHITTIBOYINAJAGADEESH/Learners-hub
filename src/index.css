@@ -74,7 +74,7 @@
   }
   
   .lms-card {
-    @apply bg-lms-gray border border-gray-700 rounded-xl p-6 transition-all duration-300 hover:shadow-2xl hover:border-gray-600;
+    @apply bg-lms-gray border border-gray-700 rounded-xl p-6 transition-all duration-300 hover:shadow-2xl hover:border-gray-600 overflow-hidden;
   }
   
   .lms-input {
@@ -87,5 +87,48 @@
   
   .animate-slideInLeft {
     animation: slide-in-left 0.5s ease-out;
+  }
+
+  /* Text overflow utilities */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .text-wrap-break {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+
+  /* Ensure modals are properly contained */
+  .modal-content {
+    max-width: 100vw;
+    max-height: 100vh;
+    overflow: auto;
+  }
+
+  /* Responsive grid improvements */
+  .course-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 640px) {
+    .course-grid {
+      grid-template-columns: 1fr;
+    }
   }
 }
