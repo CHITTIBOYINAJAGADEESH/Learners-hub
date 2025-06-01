@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { BookOpen, ArrowLeft, Play, CheckCircle, Lock, Award } from 'lucide-react';
+import { BookOpen, ArrowLeft, Play, CheckCircle, Lock, Award, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface MCQ {
@@ -20,6 +20,15 @@ interface Module {
   mcqs: MCQ[];
 }
 
+interface StudentProgress {
+  courseId: number;
+  studentId: number;
+  completedModules: number[];
+  overallProgress: number;
+  isCompleted: boolean;
+  completionDate?: string;
+}
+
 const CoursePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -30,158 +39,233 @@ const CoursePage = () => {
   const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
+  const [studentProgress, setStudentProgress] = useState<StudentProgress | null>(null);
+  const [course, setCourse] = useState<any>(null);
 
-  // Mock course data
-  const course = {
-    id: parseInt(id || '1'),
-    title: "Introduction to Programming",
-    description: "Learn the fundamentals of programming with hands-on exercises",
-    instructor: "Dr. Smith",
-    image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&h=400&fit=crop",
-    modules: [
-      {
-        id: 1,
-        title: "Getting Started with Programming",
-        content: "In this module, you'll learn the basic concepts of programming including variables, data types, and basic syntax. Programming is the process of creating instructions for computers to follow.",
-        isCompleted: true,
-        isLocked: false,
-        mcqs: [
-          {
-            id: 1,
-            question: "What is a variable in programming?",
-            options: ["A fixed value", "A container for storing data", "A programming language", "A computer component"],
-            correctAnswer: 1
-          },
-          {
-            id: 2,
-            question: "Which of the following is a primitive data type?",
-            options: ["Array", "Object", "Integer", "Class"],
-            correctAnswer: 2
-          },
-          {
-            id: 3,
-            question: "What does 'syntax' mean in programming?",
-            options: ["The meaning of code", "The rules for writing code", "The speed of execution", "The memory usage"],
-            correctAnswer: 1
-          },
-          {
-            id: 4,
-            question: "What is debugging?",
-            options: ["Writing new code", "Finding and fixing errors", "Running code", "Saving code"],
-            correctAnswer: 1
-          },
-          {
-            id: 5,
-            question: "Which symbol is commonly used for assignment in many programming languages?",
-            options: ["==", "=", "!=", "=>"],
-            correctAnswer: 1
-          }
-        ]
-      },
-      {
-        id: 2,
-        title: "Control Structures",
-        content: "Learn about conditional statements, loops, and how to control the flow of your programs. Control structures allow you to make decisions and repeat actions in your code.",
-        isCompleted: true,
-        isLocked: false,
-        mcqs: [
-          {
-            id: 1,
-            question: "What is an if statement used for?",
-            options: ["Looping", "Making decisions", "Storing data", "Printing output"],
-            correctAnswer: 1
-          },
-          {
-            id: 2,
-            question: "Which loop runs at least once?",
-            options: ["for loop", "while loop", "do-while loop", "if loop"],
-            correctAnswer: 2
-          },
-          {
-            id: 3,
-            question: "What does 'else' do in an if-else statement?",
-            options: ["Repeats the if condition", "Executes when if condition is false", "Ends the program", "Creates a loop"],
-            correctAnswer: 1
-          },
-          {
-            id: 4,
-            question: "What is the purpose of a loop?",
-            options: ["To store data", "To repeat code", "To make decisions", "To end programs"],
-            correctAnswer: 1
-          },
-          {
-            id: 5,
-            question: "Which operator is used for 'not equal' in most languages?",
-            options: ["=", "==", "!=", "<>"],
-            correctAnswer: 2
-          }
-        ]
-      },
-      {
-        id: 3,
-        title: "Functions and Methods",
-        content: "Discover how to organize your code using functions and methods. Functions help you write reusable code and break down complex problems into smaller, manageable pieces.",
-        isCompleted: false,
-        isLocked: false,
-        mcqs: [
-          {
-            id: 1,
-            question: "What is a function?",
-            options: ["A variable", "A reusable block of code", "A data type", "A loop"],
-            correctAnswer: 1
-          },
-          {
-            id: 2,
-            question: "What are function parameters?",
-            options: ["Return values", "Input values", "Variable names", "Function names"],
-            correctAnswer: 1
-          },
-          {
-            id: 3,
-            question: "What does 'return' do in a function?",
-            options: ["Starts the function", "Ends the function and gives back a value", "Creates a loop", "Prints output"],
-            correctAnswer: 1
-          },
-          {
-            id: 4,
-            question: "What is function scope?",
-            options: ["Function speed", "Where variables can be accessed", "Function size", "Function type"],
-            correctAnswer: 1
-          },
-          {
-            id: 5,
-            question: "Why are functions useful?",
-            options: ["They make code longer", "They make code reusable", "They slow down programs", "They use more memory"],
-            correctAnswer: 1
-          }
-        ]
-      },
-      {
-        id: 4,
-        title: "Data Structures",
-        content: "Learn about arrays, objects, and other ways to organize and store data efficiently in your programs.",
-        isCompleted: false,
-        isLocked: true,
-        mcqs: []
-      },
-      {
-        id: 5,
-        title: "Final Project",
-        content: "Apply everything you've learned by building a complete programming project from scratch.",
-        isCompleted: false,
-        isLocked: true,
-        mcqs: []
-      }
-    ] as Module[]
-  };
-
+  // Initialize course and student progress
   useEffect(() => {
     // Check if user is logged in
     const isLoggedIn = localStorage.getItem('isLoggedIn');
+    const userRole = localStorage.getItem('userRole');
     if (!isLoggedIn) {
       navigate('/login');
+      return;
     }
-  }, [navigate]);
+
+    // Load course data
+    const courseId = parseInt(id || '1');
+    let courseData = null;
+
+    // For students, check if course is assigned to them
+    if (userRole === 'student') {
+      const courseAssignments = JSON.parse(localStorage.getItem('courseAssignments') || '[]');
+      const studentEmail = localStorage.getItem('userEmail');
+      
+      // Mock student data - in real app, you'd get this from backend
+      const students = [
+        { id: 1, email: 'john@example.com' },
+        { id: 2, email: 'jane@example.com' },
+        { id: 3, email: 'mike@example.com' },
+        { id: 4, email: 'student@learnershub.com' }
+      ];
+      
+      const currentStudent = students.find(s => s.email === studentEmail);
+      if (!currentStudent) {
+        toast({
+          title: "Access Denied",
+          description: "Student account not found.",
+          variant: "destructive",
+        });
+        navigate('/student');
+        return;
+      }
+
+      const isAssigned = courseAssignments.some((assignment: any) => 
+        assignment.courseId === courseId && assignment.studentId === currentStudent.id
+      );
+
+      if (!isAssigned) {
+        toast({
+          title: "Access Denied",
+          description: "This course is not assigned to you.",
+          variant: "destructive",
+        });
+        navigate('/student');
+        return;
+      }
+
+      // Load student progress
+      const savedProgress = JSON.parse(localStorage.getItem('studentProgress') || '[]');
+      let progress = savedProgress.find((p: StudentProgress) => 
+        p.courseId === courseId && p.studentId === currentStudent.id
+      );
+
+      if (!progress) {
+        progress = {
+          courseId,
+          studentId: currentStudent.id,
+          completedModules: [],
+          overallProgress: 0,
+          isCompleted: false
+        };
+        savedProgress.push(progress);
+        localStorage.setItem('studentProgress', JSON.stringify(savedProgress));
+      }
+      setStudentProgress(progress);
+    }
+
+    // Load course data from admin courses
+    const adminCourses = JSON.parse(localStorage.getItem('adminCourses') || '[]');
+    courseData = adminCourses.find((c: any) => c.id === courseId);
+
+    if (!courseData) {
+      // Fallback to mock data
+      courseData = {
+        id: courseId,
+        title: "Introduction to Programming",
+        description: "Learn the fundamentals of programming with hands-on exercises",
+        instructor: "Dr. Smith",
+        image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&h=400&fit=crop",
+        modules: []
+      };
+    }
+
+    // Load instructor modules for this course
+    const instructorModules = JSON.parse(localStorage.getItem('instructorModules') || '[]');
+    const courseModules = instructorModules.filter((m: any) => m.courseId === courseId);
+
+    if (courseModules.length > 0) {
+      // Use instructor-created modules
+      courseData.modules = courseModules.map((module: any, index: number) => ({
+        ...module,
+        isCompleted: studentProgress?.completedModules.includes(module.id) || false,
+        isLocked: index === 0 ? false : !studentProgress?.completedModules.includes(courseModules[index - 1]?.id)
+      }));
+    } else {
+      // Fallback to default modules
+      courseData.modules = [
+        {
+          id: 1,
+          title: "Getting Started with Programming",
+          content: "In this module, you'll learn the basic concepts of programming including variables, data types, and basic syntax. Programming is the process of creating instructions for computers to follow.",
+          isCompleted: studentProgress?.completedModules.includes(1) || false,
+          isLocked: false,
+          mcqs: [
+            {
+              id: 1,
+              question: "What is a variable in programming?",
+              options: ["A fixed value", "A container for storing data", "A programming language", "A computer component"],
+              correctAnswer: 1
+            },
+            {
+              id: 2,
+              question: "Which of the following is a primitive data type?",
+              options: ["Array", "Object", "Integer", "Class"],
+              correctAnswer: 2
+            },
+            {
+              id: 3,
+              question: "What does 'syntax' mean in programming?",
+              options: ["The meaning of code", "The rules for writing code", "The speed of execution", "The memory usage"],
+              correctAnswer: 1
+            },
+            {
+              id: 4,
+              question: "What is debugging?",
+              options: ["Writing new code", "Finding and fixing errors", "Running code", "Saving code"],
+              correctAnswer: 1
+            },
+            {
+              id: 5,
+              question: "Which symbol is commonly used for assignment in many programming languages?",
+              options: ["==", "=", "!=", "=>"],
+              correctAnswer: 1
+            }
+          ]
+        },
+        {
+          id: 2,
+          title: "Control Structures",
+          content: "Learn about conditional statements, loops, and how to control the flow of your programs. Control structures allow you to make decisions and repeat actions in your code.",
+          isCompleted: studentProgress?.completedModules.includes(2) || false,
+          isLocked: !studentProgress?.completedModules.includes(1),
+          mcqs: [
+            {
+              id: 1,
+              question: "What is an if statement used for?",
+              options: ["Looping", "Making decisions", "Storing data", "Printing output"],
+              correctAnswer: 1
+            },
+            {
+              id: 2,
+              question: "Which loop runs at least once?",
+              options: ["for loop", "while loop", "do-while loop", "if loop"],
+              correctAnswer: 2
+            },
+            {
+              id: 3,
+              question: "What does 'else' do in an if-else statement?",
+              options: ["Repeats the if condition", "Executes when if condition is false", "Ends the program", "Creates a loop"],
+              correctAnswer: 1
+            },
+            {
+              id: 4,
+              question: "What is the purpose of a loop?",
+              options: ["To store data", "To repeat code", "To make decisions", "To end programs"],
+              correctAnswer: 1
+            },
+            {
+              id: 5,
+              question: "Which operator is used for 'not equal' in most languages?",
+              options: ["=", "==", "!=", "<>"],
+              correctAnswer: 2
+            }
+          ]
+        },
+        {
+          id: 3,
+          title: "Functions and Methods",
+          content: "Discover how to organize your code using functions and methods. Functions help you write reusable code and break down complex problems into smaller, manageable pieces.",
+          isCompleted: studentProgress?.completedModules.includes(3) || false,
+          isLocked: !studentProgress?.completedModules.includes(2),
+          mcqs: [
+            {
+              id: 1,
+              question: "What is a function?",
+              options: ["A variable", "A reusable block of code", "A data type", "A loop"],
+              correctAnswer: 1
+            },
+            {
+              id: 2,
+              question: "What are function parameters?",
+              options: ["Return values", "Input values", "Variable names", "Function names"],
+              correctAnswer: 1
+            },
+            {
+              id: 3,
+              question: "What does 'return' do in a function?",
+              options: ["Starts the function", "Ends the function and gives back a value", "Creates a loop", "Prints output"],
+              correctAnswer: 1
+            },
+            {
+              id: 4,
+              question: "What is function scope?",
+              options: ["Function speed", "Where variables can be accessed", "Function size", "Function type"],
+              correctAnswer: 1
+            },
+            {
+              id: 5,
+              question: "Why are functions useful?",
+              options: ["They make code longer", "They make code reusable", "They slow down programs", "They use more memory"],
+              correctAnswer: 1
+            }
+          ]
+        }
+      ];
+    }
+
+    setCourse(courseData);
+  }, [id, navigate]);
 
   const handleBack = () => {
     const userRole = localStorage.getItem('userRole');
@@ -236,6 +320,60 @@ const CoursePage = () => {
     setSelectedAnswers(newAnswers);
   };
 
+  const updateModuleLockStatus = (moduleId: number) => {
+    if (!course || !studentProgress) return;
+
+    // Update course modules lock status
+    const updatedModules = course.modules.map((module: Module, index: number) => {
+      if (module.id === moduleId) {
+        return { ...module, isCompleted: true };
+      }
+      
+      // Unlock next module if current one is completed
+      if (index > 0 && course.modules[index - 1].id === moduleId) {
+        return { ...module, isLocked: false };
+      }
+      
+      return module;
+    });
+
+    setCourse({ ...course, modules: updatedModules });
+  };
+
+  const updateStudentProgress = (moduleId: number) => {
+    if (!studentProgress || !course) return;
+
+    const updatedProgress = { ...studentProgress };
+    if (!updatedProgress.completedModules.includes(moduleId)) {
+      updatedProgress.completedModules.push(moduleId);
+    }
+
+    // Calculate overall progress
+    updatedProgress.overallProgress = (updatedProgress.completedModules.length / course.modules.length) * 100;
+
+    // Check if course is completed
+    if (updatedProgress.completedModules.length === course.modules.length) {
+      updatedProgress.isCompleted = true;
+      updatedProgress.completionDate = new Date().toISOString();
+    }
+
+    setStudentProgress(updatedProgress);
+
+    // Save to localStorage
+    const allProgress = JSON.parse(localStorage.getItem('studentProgress') || '[]');
+    const progressIndex = allProgress.findIndex((p: StudentProgress) => 
+      p.courseId === updatedProgress.courseId && p.studentId === updatedProgress.studentId
+    );
+
+    if (progressIndex !== -1) {
+      allProgress[progressIndex] = updatedProgress;
+    } else {
+      allProgress.push(updatedProgress);
+    }
+
+    localStorage.setItem('studentProgress', JSON.stringify(allProgress));
+  };
+
   const handleNextQuestion = () => {
     if (currentQuestionIndex < selectedModule!.mcqs.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
@@ -251,16 +389,19 @@ const CoursePage = () => {
       if (score >= 70) {
         toast({
           title: "Quiz Completed!",
-          description: `Great job! You scored ${score}%. Module unlocked.`,
+          description: `Great job! You scored ${score}%. Module completed!`,
         });
         
-        // Mark module as completed and unlock next module
-        const moduleIndex = course.modules.findIndex(m => m.id === selectedModule!.id);
-        if (moduleIndex !== -1) {
-          course.modules[moduleIndex].isCompleted = true;
-          if (moduleIndex + 1 < course.modules.length) {
-            course.modules[moduleIndex + 1].isLocked = false;
-          }
+        // Update student progress and unlock next module
+        updateStudentProgress(selectedModule!.id);
+        updateModuleLockStatus(selectedModule!.id);
+        
+        // Check if course is completed
+        if (studentProgress && studentProgress.completedModules.length + 1 === course.modules.length) {
+          toast({
+            title: "Course Completed!",
+            description: "Congratulations! You've completed the entire course. Certificate available for download.",
+          });
         }
       } else {
         toast({
@@ -279,7 +420,145 @@ const CoursePage = () => {
     setSelectedAnswers(new Array(selectedModule!.mcqs.length).fill(-1));
   };
 
-  const progress = (course.modules.filter(m => m.isCompleted).length / course.modules.length) * 100;
+  const handleDownloadCertificate = () => {
+    if (!studentProgress?.isCompleted || !course) {
+      toast({
+        title: "Certificate Not Available",
+        description: "Complete all modules to download your certificate.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const studentName = localStorage.getItem('userName') || 'Student';
+    const completionDate = new Date(studentProgress.completionDate!).toLocaleDateString();
+    
+    // Create certificate HTML
+    const certificateHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Certificate of Completion</title>
+        <style>
+          body { 
+            font-family: 'Georgia', serif; 
+            margin: 0; 
+            padding: 40px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .certificate {
+            background: white;
+            padding: 60px;
+            border: 10px solid #gold;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 800px;
+            position: relative;
+          }
+          .certificate::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            bottom: 20px;
+            border: 3px solid #ddd;
+            border-radius: 10px;
+          }
+          h1 { 
+            font-size: 48px; 
+            color: #333; 
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+          }
+          .subtitle { 
+            font-size: 24px; 
+            color: #666; 
+            margin-bottom: 40px; 
+          }
+          .student-name { 
+            font-size: 36px; 
+            color: #8B4513; 
+            font-weight: bold; 
+            margin: 30px 0;
+            text-decoration: underline;
+          }
+          .course-title { 
+            font-size: 28px; 
+            color: #333; 
+            margin: 30px 0;
+            font-style: italic;
+          }
+          .completion-date { 
+            font-size: 18px; 
+            color: #666; 
+            margin-top: 40px; 
+          }
+          .signature-section { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-top: 60px; 
+            font-size: 16px;
+          }
+          .signature-line { 
+            border-top: 2px solid #333; 
+            width: 200px; 
+            padding-top: 10px; 
+          }
+        </style>
+      </head>
+      <body>
+        <div class="certificate">
+          <h1>Certificate of Completion</h1>
+          <div class="subtitle">This is to certify that</div>
+          <div class="student-name">${studentName}</div>
+          <div class="subtitle">has successfully completed the course</div>
+          <div class="course-title">${course.title}</div>
+          <div class="completion-date">Completed on: ${completionDate}</div>
+          <div class="signature-section">
+            <div class="signature-line">
+              <div>Student Signature</div>
+            </div>
+            <div class="signature-line">
+              <div>Instructor Signature</div>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Create and download the certificate
+    const blob = new Blob([certificateHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${course.title}_Certificate_${studentName.replace(/\s+/g, '_')}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Certificate Downloaded",
+      description: "Your certificate has been downloaded successfully!",
+    });
+  };
+
+  if (!course) {
+    return (
+      <div className="min-h-screen bg-lms-dark flex items-center justify-center">
+        <div className="text-white text-xl">Loading course...</div>
+      </div>
+    );
+  }
+
+  const progress = studentProgress ? studentProgress.overallProgress : 0;
 
   return (
     <div className="min-h-screen bg-lms-dark">
@@ -302,17 +581,28 @@ const CoursePage = () => {
                 </div>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-sm text-gray-400">Overall Progress</div>
-              <div className="flex items-center space-x-2">
-                <div className="w-32 bg-gray-700 rounded-full h-2">
-                  <div 
-                    className="bg-lms-green h-2 rounded-full transition-all duration-300" 
-                    style={{width: `${progress}%`}}
-                  ></div>
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <div className="text-sm text-gray-400">Overall Progress</div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-32 bg-gray-700 rounded-full h-2">
+                    <div 
+                      className="bg-lms-green h-2 rounded-full transition-all duration-300" 
+                      style={{width: `${progress}%`}}
+                    ></div>
+                  </div>
+                  <span className="text-lms-green font-medium">{Math.round(progress)}%</span>
                 </div>
-                <span className="text-lms-green font-medium">{Math.round(progress)}%</span>
               </div>
+              {studentProgress?.isCompleted && (
+                <button
+                  onClick={handleDownloadCertificate}
+                  className="lms-button-primary flex items-center space-x-2"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>Certificate</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -324,7 +614,7 @@ const CoursePage = () => {
           <div className="lg:col-span-1">
             <h2 className="text-xl font-poppins font-bold text-white mb-4">Course Modules</h2>
             <div className="space-y-3">
-              {course.modules.map((module) => (
+              {course.modules.map((module: Module) => (
                 <button
                   key={module.id}
                   onClick={() => handleModuleSelect(module)}

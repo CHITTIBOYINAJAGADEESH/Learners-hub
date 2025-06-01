@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, ArrowLeft, Users, Plus, Eye, BarChart3, Settings, X, Camera, Save, Edit, Trash2 } from 'lucide-react';
+import { BookOpen, ArrowLeft, Users, Plus, Eye, BarChart3, Settings, X, Camera, Save, Edit, Trash2, UserPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Course {
@@ -14,6 +13,20 @@ interface Course {
   instructor?: string;
   createdDate?: string;
   status?: 'active' | 'draft';
+}
+
+interface Student {
+  id: number;
+  name: string;
+  email: string;
+  profilePicture: string;
+}
+
+interface CourseAssignment {
+  courseId: number;
+  studentId: number;
+  assignedDate: string;
+  progress: number;
 }
 
 interface InstructorProfile {
@@ -41,8 +54,12 @@ const InstructorDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [courseAssignments, setCourseAssignments] = useState<CourseAssignment[]>([]);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [showModuleForm, setShowModuleForm] = useState(false);
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+  const [selectedCourseForAssignment, setSelectedCourseForAssignment] = useState<Course | null>(null);
   const [editingModule, setEditingModule] = useState<Module | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
   const [instructorProfile, setInstructorProfile] = useState<InstructorProfile>({
@@ -90,7 +107,43 @@ const InstructorDashboard = () => {
     if (savedModules) {
       setModules(JSON.parse(savedModules));
     }
+
+    // Load students (mock data for now)
+    const mockStudents: Student[] = [
+      {
+        id: 1,
+        name: 'John Doe',
+        email: 'john@example.com',
+        profilePicture: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
+      },
+      {
+        id: 2,
+        name: 'Jane Smith',
+        email: 'jane@example.com',
+        profilePicture: 'https://images.unsplash.com/photo-1494790108755-2616b612b5bc?w=150&h=150&fit=crop&crop=face'
+      },
+      {
+        id: 3,
+        name: 'Mike Johnson',
+        email: 'mike@example.com',
+        profilePicture: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face'
+      }
+    ];
+    setStudents(mockStudents);
+
+    // Load course assignments
+    const savedAssignments = localStorage.getItem('courseAssignments');
+    if (savedAssignments) {
+      setCourseAssignments(JSON.parse(savedAssignments));
+    }
   }, [navigate]);
+
+  // Save assignments to localStorage whenever assignments change
+  useEffect(() => {
+    if (courseAssignments.length > 0) {
+      localStorage.setItem('courseAssignments', JSON.stringify(courseAssignments));
+    }
+  }, [courseAssignments]);
 
   // Save modules to localStorage whenever modules change
   useEffect(() => {
@@ -132,6 +185,39 @@ const InstructorDashboard = () => {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleAssignCourse = (course: Course) => {
+    setSelectedCourseForAssignment(course);
+    setShowAssignmentModal(true);
+  };
+
+  const handleConfirmAssignment = (studentIds: number[]) => {
+    if (!selectedCourseForAssignment) return;
+
+    const newAssignments: CourseAssignment[] = studentIds.map(studentId => ({
+      courseId: selectedCourseForAssignment.id,
+      studentId,
+      assignedDate: new Date().toISOString(),
+      progress: 0
+    }));
+
+    // Remove existing assignments for this course and these students
+    const filteredAssignments = courseAssignments.filter(
+      assignment => !(assignment.courseId === selectedCourseForAssignment.id && studentIds.includes(assignment.studentId))
+    );
+
+    const updatedAssignments = [...filteredAssignments, ...newAssignments];
+    setCourseAssignments(updatedAssignments);
+    localStorage.setItem('courseAssignments', JSON.stringify(updatedAssignments));
+
+    setShowAssignmentModal(false);
+    setSelectedCourseForAssignment(null);
+
+    toast({
+      title: "Course Assigned",
+      description: `${selectedCourseForAssignment.title} has been assigned to ${studentIds.length} student(s).`,
+    });
   };
 
   const handleAddModule = (e: React.FormEvent) => {
@@ -241,11 +327,23 @@ const InstructorDashboard = () => {
     }));
   };
 
+  const getAssignedStudentsCount = (courseId: number) => {
+    return courseAssignments.filter(assignment => assignment.courseId === courseId).length;
+  };
+
+  const getAssignedStudents = (courseId: number) => {
+    const assignedStudentIds = courseAssignments
+      .filter(assignment => assignment.courseId === courseId)
+      .map(assignment => assignment.studentId);
+    
+    return students.filter(student => assignedStudentIds.includes(student.id));
+  };
+
   const stats = [
     { label: 'Available Courses', value: availableCourses.length, color: 'lms-blue' },
     { label: 'Created Modules', value: modules.length, color: 'lms-green' },
-    { label: 'Total Students', value: 20, color: 'lms-purple' },
-    { label: 'Average Progress', value: '78%', color: 'lms-yellow' }
+    { label: 'Total Assignments', value: courseAssignments.length, color: 'lms-purple' },
+    { label: 'Active Students', value: new Set(courseAssignments.map(a => a.studentId)).size, color: 'lms-yellow' }
   ];
 
   return (
@@ -297,7 +395,7 @@ const InstructorDashboard = () => {
               { id: 'overview', label: 'Overview' },
               { id: 'courses', label: 'Courses' },
               { id: 'modules', label: 'Modules' },
-              { id: 'students', label: 'Students' }
+              { id: 'assignments', label: 'Assignments' }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -313,6 +411,33 @@ const InstructorDashboard = () => {
             ))}
           </nav>
         </div>
+
+        {/* Assignment Modal */}
+        {showAssignmentModal && selectedCourseForAssignment && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-lms-gray rounded-xl p-6 w-full max-w-2xl modal-content">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-poppins font-bold text-white">
+                  Assign Course: {selectedCourseForAssignment.title}
+                </h3>
+                <button 
+                  onClick={() => setShowAssignmentModal(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              
+              <AssignmentForm
+                course={selectedCourseForAssignment}
+                students={students}
+                existingAssignments={courseAssignments}
+                onAssign={handleConfirmAssignment}
+                onCancel={() => setShowAssignmentModal(false)}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Profile Edit Modal */}
         {showProfileEdit && (
@@ -556,17 +681,17 @@ const InstructorDashboard = () => {
               <div className="space-y-3">
                 <div className="flex items-center space-x-3 text-gray-300">
                   <div className="w-2 h-2 bg-lms-green rounded-full"></div>
-                  <span>Student completed Module 3 in Web Development</span>
+                  <span>Course assigned to new students</span>
                   <span className="text-gray-500 text-sm">1 hour ago</span>
                 </div>
                 <div className="flex items-center space-x-3 text-gray-300">
                   <div className="w-2 h-2 bg-lms-blue rounded-full"></div>
-                  <span>New student enrolled in Programming course</span>
+                  <span>New module created for Programming course</span>
                   <span className="text-gray-500 text-sm">3 hours ago</span>
                 </div>
                 <div className="flex items-center space-x-3 text-gray-300">
                   <div className="w-2 h-2 bg-lms-purple rounded-full"></div>
-                  <span>Quiz submission received for Module 2</span>
+                  <span>Student progress updated</span>
                   <span className="text-gray-500 text-sm">5 hours ago</span>
                 </div>
               </div>
@@ -598,18 +723,24 @@ const InstructorDashboard = () => {
                   
                   <div className="flex justify-between text-sm text-gray-500 mb-4">
                     <span>{course.modules} modules</span>
-                    <span>{course.assignedStudents} students assigned</span>
+                    <span>{getAssignedStudentsCount(course.id)} students assigned</span>
                   </div>
                   
                   <div className="flex space-x-2">
-                    <button className="lms-button bg-lms-green/20 text-lms-green hover:bg-lms-green/30 flex-1 flex items-center justify-center space-x-1">
-                      <Users className="h-4 w-4" />
+                    <button 
+                      onClick={() => handleAssignCourse(course)}
+                      className="lms-button bg-lms-green/20 text-lms-green hover:bg-lms-green/30 flex-1 flex items-center justify-center space-x-1"
+                    >
+                      <UserPlus className="h-4 w-4" />
                       <span>Assign</span>
                     </button>
-                    <button className="lms-button bg-lms-blue/20 text-lms-blue hover:bg-lms-blue/30 flex-1 flex items-center justify-center space-x-1">
+                    <Link
+                      to={`/course/${course.id}`}
+                      className="lms-button bg-lms-blue/20 text-lms-blue hover:bg-lms-blue/30 flex-1 flex items-center justify-center space-x-1"
+                    >
                       <Eye className="h-4 w-4" />
-                      <span>Manage</span>
-                    </button>
+                      <span>View</span>
+                    </Link>
                   </div>
                 </div>
               ))}
@@ -674,56 +805,149 @@ const InstructorDashboard = () => {
           </div>
         )}
 
-        {/* Students Tab */}
-        {activeTab === 'students' && (
+        {/* Assignments Tab */}
+        {activeTab === 'assignments' && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-poppins font-bold text-white">Student Progress</h2>
+            <h2 className="text-2xl font-poppins font-bold text-white">Course Assignments</h2>
             
-            <div className="lms-card">
-              <h3 className="text-lg font-poppins font-semibold text-white mb-4">Student Performance</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-gray-700">
-                      <th className="pb-3 text-gray-400">Student</th>
-                      <th className="pb-3 text-gray-400">Course</th>
-                      <th className="pb-3 text-gray-400">Progress</th>
-                      <th className="pb-3 text-gray-400">Last Activity</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-gray-300">
-                    <tr className="border-b border-gray-800">
-                      <td className="py-3">John Doe</td>
-                      <td className="py-3 text-wrap-break">Web Development</td>
-                      <td className="py-3">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-20 bg-gray-700 rounded-full h-2">
-                            <div className="bg-lms-green h-2 rounded-full" style={{width: '75%'}}></div>
+            <div className="space-y-4">
+              {availableCourses.map((course) => {
+                const assignedStudents = getAssignedStudents(course.id);
+                if (assignedStudents.length === 0) return null;
+
+                return (
+                  <div key={course.id} className="lms-card">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-poppins font-semibold text-white">
+                        {course.title}
+                      </h3>
+                      <span className="text-gray-400 text-sm">
+                        {assignedStudents.length} students
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {assignedStudents.map((student) => (
+                        <div key={student.id} className="bg-lms-dark p-4 rounded-lg">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <img
+                              src={student.profilePicture}
+                              alt={student.name}
+                              className="w-10 h-10 rounded-full object-cover"
+                            />
+                            <div>
+                              <h4 className="text-white font-medium">{student.name}</h4>
+                              <p className="text-gray-400 text-sm">{student.email}</p>
+                            </div>
                           </div>
-                          <span className="text-sm">75%</span>
-                        </div>
-                      </td>
-                      <td className="py-3">2 hours ago</td>
-                    </tr>
-                    <tr className="border-b border-gray-800">
-                      <td className="py-3">Jane Smith</td>
-                      <td className="py-3 text-wrap-break">Programming Basics</td>
-                      <td className="py-3">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-20 bg-gray-700 rounded-full h-2">
-                            <div className="bg-lms-blue h-2 rounded-full" style={{width: '90%'}}></div>
+                          <div className="flex items-center space-x-2">
+                            <div className="flex-1 bg-gray-700 rounded-full h-2">
+                              <div 
+                                className="bg-lms-green h-2 rounded-full transition-all duration-300" 
+                                style={{width: `${Math.random() * 100}%`}}
+                              ></div>
+                            </div>
+                            <span className="text-xs text-gray-400">
+                              {Math.floor(Math.random() * 100)}%
+                            </span>
                           </div>
-                          <span className="text-sm">90%</span>
                         </div>
-                      </td>
-                      <td className="py-3">1 hour ago</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+// Assignment Form Component
+const AssignmentForm = ({ course, students, existingAssignments, onAssign, onCancel }: {
+  course: Course;
+  students: Student[];
+  existingAssignments: CourseAssignment[];
+  onAssign: (studentIds: number[]) => void;
+  onCancel: () => void;
+}) => {
+  const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
+
+  const alreadyAssignedStudents = existingAssignments
+    .filter(assignment => assignment.courseId === course.id)
+    .map(assignment => assignment.studentId);
+
+  const handleStudentToggle = (studentId: number) => {
+    setSelectedStudents(prev => 
+      prev.includes(studentId) 
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-gray-400">Select students to assign to this course:</p>
+      
+      <div className="space-y-2 max-h-60 overflow-y-auto">
+        {students.map((student) => {
+          const isAlreadyAssigned = alreadyAssignedStudents.includes(student.id);
+          const isSelected = selectedStudents.includes(student.id);
+          
+          return (
+            <div
+              key={student.id}
+              className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                isAlreadyAssigned 
+                  ? 'bg-gray-700/50 cursor-not-allowed'
+                  : isSelected 
+                    ? 'bg-lms-blue/20 border border-lms-blue' 
+                    : 'bg-lms-dark hover:bg-gray-700'
+              }`}
+              onClick={() => !isAlreadyAssigned && handleStudentToggle(student.id)}
+            >
+              <img
+                src={student.profilePicture}
+                alt={student.name}
+                className="w-10 h-10 rounded-full object-cover"
+              />
+              <div className="flex-1">
+                <h4 className={`font-medium ${isAlreadyAssigned ? 'text-gray-500' : 'text-white'}`}>
+                  {student.name}
+                </h4>
+                <p className="text-gray-400 text-sm">{student.email}</p>
+              </div>
+              {isAlreadyAssigned && (
+                <span className="text-xs text-gray-500 bg-gray-600 px-2 py-1 rounded">
+                  Already Assigned
+                </span>
+              )}
+              {isSelected && !isAlreadyAssigned && (
+                <div className="w-5 h-5 bg-lms-blue rounded-full flex items-center justify-center">
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex space-x-3 pt-4">
+        <button
+          onClick={() => onAssign(selectedStudents)}
+          disabled={selectedStudents.length === 0}
+          className="lms-button-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Assign Course ({selectedStudents.length})
+        </button>
+        <button
+          onClick={onCancel}
+          className="lms-button bg-gray-600 hover:bg-gray-700 flex-1"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   );
