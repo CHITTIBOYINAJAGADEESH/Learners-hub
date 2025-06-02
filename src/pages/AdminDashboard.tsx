@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BookOpen, ArrowLeft, Plus, Users, BarChart3, Settings, Trash2, Edit, Eye, Save, X, Camera, Upload } from 'lucide-react';
@@ -22,9 +21,20 @@ interface AdminProfile {
   profilePicture: string;
 }
 
+interface UserActivity {
+  id: string;
+  email: string;
+  name?: string;
+  role: string;
+  loginTime?: string;
+  registrationTime?: string;
+  type: 'login' | 'registration';
+}
+
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [courses, setCourses] = useState<Course[]>([]);
+  const [userActivities, setUserActivities] = useState<UserActivity[]>([]);
   const [showCourseForm, setShowCourseForm] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [viewingCourse, setViewingCourse] = useState<Course | null>(null);
@@ -45,6 +55,12 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Load user activities from localStorage
+  const loadUserActivities = () => {
+    const adminUserData = JSON.parse(localStorage.getItem('adminUserData') || '[]');
+    setUserActivities(adminUserData);
+  };
+
   useEffect(() => {
     // Check if user is logged in as admin
     const userRole = localStorage.getItem('userRole');
@@ -54,6 +70,9 @@ const AdminDashboard = () => {
       navigate('/login');
       return;
     }
+
+    // Load user activities
+    loadUserActivities();
 
     // Load persistent courses from localStorage
     const savedCourses = localStorage.getItem('adminCourses');
@@ -94,6 +113,10 @@ const AdminDashboard = () => {
     if (savedProfile) {
       setAdminProfile(JSON.parse(savedProfile));
     }
+
+    // Set up interval to refresh user activities every 5 seconds
+    const interval = setInterval(loadUserActivities, 5000);
+    return () => clearInterval(interval);
   }, [navigate]);
 
   // Save courses to localStorage whenever courses change
@@ -206,11 +229,28 @@ const AdminDashboard = () => {
     }
   };
 
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    if (diffInHours < 1) {
+      const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+      return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`;
+    } else {
+      return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`;
+    }
+  };
+
   const stats = [
     { label: 'Total Courses', value: courses.length, color: 'lms-blue' },
-    { label: 'Total Students', value: 45, color: 'lms-green' },
-    { label: 'Total Instructors', value: 8, color: 'lms-purple' },
-    { label: 'Active Sessions', value: 12, color: 'lms-yellow' }
+    { label: 'Total Students', value: userActivities.filter(u => u.role === 'student').length, color: 'lms-green' },
+    { label: 'Total Instructors', value: userActivities.filter(u => u.role === 'instructor').length, color: 'lms-purple' },
+    { label: 'Total Users', value: userActivities.length, color: 'lms-yellow' }
   ];
 
   return (
@@ -381,21 +421,22 @@ const AdminDashboard = () => {
             <div className="lms-card">
               <h2 className="text-xl font-poppins font-bold text-white mb-4">Recent Activity</h2>
               <div className="space-y-3">
-                <div className="flex items-center space-x-3 text-gray-300">
-                  <div className="w-2 h-2 bg-lms-green rounded-full"></div>
-                  <span>New student enrolled in Web Development Basics</span>
-                  <span className="text-gray-500 text-sm">2 hours ago</span>
-                </div>
-                <div className="flex items-center space-x-3 text-gray-300">
-                  <div className="w-2 h-2 bg-lms-blue rounded-full"></div>
-                  <span>Course "Introduction to Programming" updated</span>
-                  <span className="text-gray-500 text-sm">4 hours ago</span>
-                </div>
-                <div className="flex items-center space-x-3 text-gray-300">
-                  <div className="w-2 h-2 bg-lms-purple rounded-full"></div>
-                  <span>New instructor account created</span>
-                  <span className="text-gray-500 text-sm">1 day ago</span>
-                </div>
+                {userActivities.slice(-5).reverse().map((activity) => (
+                  <div key={activity.id} className="flex items-center space-x-3 text-gray-300">
+                    <div className={`w-2 h-2 rounded-full ${
+                      activity.type === 'registration' ? 'bg-lms-green' : 'bg-lms-blue'
+                    }`}></div>
+                    <span>
+                      {activity.type === 'registration' ? 'New' : 'User'} {activity.role} {activity.type === 'registration' ? 'registered' : 'logged in'}: {activity.email}
+                    </span>
+                    <span className="text-gray-500 text-sm">
+                      {formatDateTime(activity.loginTime || activity.registrationTime || '')}
+                    </span>
+                  </div>
+                ))}
+                {userActivities.length === 0 && (
+                  <p className="text-gray-500">No user activity yet</p>
+                )}
               </div>
             </div>
           </div>
@@ -680,39 +721,66 @@ const AdminDashboard = () => {
         {/* Users Tab */}
         {activeTab === 'users' && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-poppins font-bold text-white">User Management</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-poppins font-bold text-white">User Management</h2>
+              <button 
+                onClick={loadUserActivities}
+                className="lms-button-primary flex items-center space-x-2"
+              >
+                <Users className="h-5 w-5" />
+                <span>Refresh</span>
+              </button>
+            </div>
             
             <div className="lms-card">
-              <h3 className="text-lg font-poppins font-semibold text-white mb-4">Recent Login History</h3>
+              <h3 className="text-lg font-poppins font-semibold text-white mb-4">
+                User Activity ({userActivities.length} total records)
+              </h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
                     <tr className="border-b border-gray-700">
-                      <th className="pb-3 text-gray-400">User</th>
+                      <th className="pb-3 text-gray-400">Email</th>
+                      <th className="pb-3 text-gray-400">Name</th>
                       <th className="pb-3 text-gray-400">Role</th>
-                      <th className="pb-3 text-gray-400">Last Login</th>
-                      <th className="pb-3 text-gray-400">Status</th>
+                      <th className="pb-3 text-gray-400">Activity</th>
+                      <th className="pb-3 text-gray-400">Time</th>
                     </tr>
                   </thead>
                   <tbody className="text-gray-300">
-                    <tr className="border-b border-gray-800">
-                      <td className="py-3 text-wrap-break">john.doe@example.com</td>
-                      <td className="py-3">Student</td>
-                      <td className="py-3">2 hours ago</td>
-                      <td className="py-3"><span className="text-lms-green">Active</span></td>
-                    </tr>
-                    <tr className="border-b border-gray-800">
-                      <td className="py-3 text-wrap-break">jane.instructor@example.com</td>
-                      <td className="py-3">Instructor</td>
-                      <td className="py-3">1 day ago</td>
-                      <td className="py-3"><span className="text-lms-green">Active</span></td>
-                    </tr>
-                    <tr className="border-b border-gray-800">
-                      <td className="py-3 text-wrap-break">mike.student@example.com</td>
-                      <td className="py-3">Student</td>
-                      <td className="py-3">3 days ago</td>
-                      <td className="py-3"><span className="text-gray-500">Inactive</span></td>
-                    </tr>
+                    {userActivities.length > 0 ? (
+                      userActivities.slice().reverse().map((activity) => (
+                        <tr key={activity.id} className="border-b border-gray-800">
+                          <td className="py-3 text-wrap-break">{activity.email}</td>
+                          <td className="py-3 text-wrap-break">{activity.name || '-'}</td>
+                          <td className="py-3">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              activity.role === 'admin' ? 'bg-lms-blue/20 text-lms-blue' :
+                              activity.role === 'instructor' ? 'bg-lms-green/20 text-lms-green' :
+                              'bg-lms-purple/20 text-lms-purple'
+                            }`}>
+                              {activity.role}
+                            </span>
+                          </td>
+                          <td className="py-3">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              activity.type === 'registration' ? 'bg-lms-green/20 text-lms-green' : 'bg-lms-blue/20 text-lms-blue'
+                            }`}>
+                              {activity.type}
+                            </span>
+                          </td>
+                          <td className="py-3">
+                            {formatDateTime(activity.loginTime || activity.registrationTime || '')}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-gray-500">
+                          No user activity recorded yet
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -748,10 +816,24 @@ const AdminDashboard = () => {
               </div>
 
               <div className="lms-card">
-                <h3 className="text-lg font-poppins font-semibold text-white mb-4">Completion Rates</h3>
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-lms-green mb-2">78%</div>
-                  <p className="text-gray-400">Average completion rate across all courses</p>
+                <h3 className="text-lg font-poppins font-semibold text-white mb-4">User Registration Stats</h3>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Total Registrations</span>
+                    <span className="text-lms-green">{userActivities.filter(u => u.type === 'registration').length}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Total Logins</span>
+                    <span className="text-lms-blue">{userActivities.filter(u => u.type === 'login').length}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Students</span>
+                    <span className="text-lms-purple">{userActivities.filter(u => u.role === 'student').length}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Instructors</span>
+                    <span className="text-lms-yellow">{userActivities.filter(u => u.role === 'instructor').length}</span>
+                  </div>
                 </div>
               </div>
             </div>
