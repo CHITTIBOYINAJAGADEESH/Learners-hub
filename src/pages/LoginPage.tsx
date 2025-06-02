@@ -43,6 +43,34 @@ const LoginPage = () => {
         localStorage.setItem('userEmail', email);
         localStorage.setItem('isLoggedIn', 'true');
 
+        // Store login information for admin panel
+        const loginData = {
+          id: Date.now().toString(),
+          email,
+          role: selectedRole,
+          loginTime: new Date().toISOString(),
+          type: 'login'
+        };
+
+        // Get existing admin data
+        const existingAdminData = JSON.parse(localStorage.getItem('adminUserData') || '[]');
+        existingAdminData.push(loginData);
+        localStorage.setItem('adminUserData', JSON.stringify(existingAdminData));
+
+        // Create user profile if it doesn't exist
+        const userProfiles = JSON.parse(localStorage.getItem('userProfiles') || '{}');
+        if (!userProfiles[email]) {
+          userProfiles[email] = {
+            id: Date.now().toString(),
+            name: email.split('@')[0], // Default name from email
+            email,
+            role: selectedRole,
+            createdAt: new Date().toISOString(),
+            profilePicture: 'https://images.unsplash.com/photo-1494790108755-2616b612b692?w=150&h=150&fit=crop&crop=face'
+          };
+          localStorage.setItem('userProfiles', JSON.stringify(userProfiles));
+        }
+
         toast({
           title: "Login Successful!",
           description: `Welcome back, ${selectedRole}!`,
@@ -166,16 +194,6 @@ const LoginPage = () => {
             {isLoading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
-
-        {/* Demo Credentials */}
-        <div className="mt-8 p-4 bg-lms-gray rounded-lg">
-          <h3 className="text-white font-medium mb-2">Demo Credentials:</h3>
-          <div className="text-sm text-gray-400 space-y-1">
-            <div>Admin: admin@learnershub.com / admin123</div>
-            <div>Instructor: instructor@learnershub.com / instructor123</div>
-            <div>Student: student@learnershub.com / student123</div>
-          </div>
-        </div>
 
         {/* Footer Links */}
         <div className="mt-8 text-center">

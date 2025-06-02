@@ -47,6 +47,33 @@ const RegisterPage = () => {
         createdAt: new Date().toISOString()
       };
 
+      // Store registration information for admin panel
+      const registrationData = {
+        id: Date.now().toString(),
+        name: formData.name,
+        email: formData.email,
+        role: selectedRole,
+        registrationTime: new Date().toISOString(),
+        type: 'registration'
+      };
+
+      // Get existing admin data
+      const existingAdminData = JSON.parse(localStorage.getItem('adminUserData') || '[]');
+      existingAdminData.push(registrationData);
+      localStorage.setItem('adminUserData', JSON.stringify(existingAdminData));
+
+      // Store user profile
+      const userProfiles = JSON.parse(localStorage.getItem('userProfiles') || '{}');
+      userProfiles[formData.email] = {
+        id: userData.id,
+        name: formData.name,
+        email: formData.email,
+        role: selectedRole,
+        createdAt: userData.createdAt,
+        profilePicture: 'https://images.unsplash.com/photo-1494790108755-2616b612b692?w=150&h=150&fit=crop&crop=face'
+      };
+      localStorage.setItem('userProfiles', JSON.stringify(userProfiles));
+
       // In a real app, this would be sent to an API
       localStorage.setItem('userRole', selectedRole);
       localStorage.setItem('userEmail', formData.email);
