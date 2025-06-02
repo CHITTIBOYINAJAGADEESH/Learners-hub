@@ -50,6 +50,14 @@ interface MCQ {
   correctAnswer: number;
 }
 
+interface RegisteredUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  createdAt: string;
+}
+
 const InstructorDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
@@ -80,6 +88,53 @@ const InstructorDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Function to load registered users from localStorage
+  const loadRegisteredUsers = (): Student[] => {
+    try {
+      const registeredUsers = localStorage.getItem('registeredUsers');
+      if (registeredUsers) {
+        const users: RegisteredUser[] = JSON.parse(registeredUsers);
+        
+        // Filter only student users and convert to Student format
+        const studentUsers = users
+          .filter(user => user.role === 'student')
+          .map((user, index) => ({
+            id: parseInt(user.id) || index + 1,
+            name: user.name,
+            email: user.email,
+            profilePicture: `https://images.unsplash.com/photo-${1472099645785 + index}?w=150&h=150&fit=crop&crop=face`
+          }));
+
+        console.log('Loaded registered student users:', studentUsers);
+        return studentUsers;
+      }
+    } catch (error) {
+      console.error('Error loading registered users:', error);
+    }
+
+    // Fallback to default students if no registered users found
+    return [
+      {
+        id: 1,
+        name: 'John Doe',
+        email: 'john@example.com',
+        profilePicture: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
+      },
+      {
+        id: 2,
+        name: 'Jane Smith',
+        email: 'jane@example.com',
+        profilePicture: 'https://images.unsplash.com/photo-1494790108755-2616b612b5bc?w=150&h=150&fit=crop&crop=face'
+      },
+      {
+        id: 3,
+        name: 'Mike Johnson',
+        email: 'mike@example.com',
+        profilePicture: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face'
+      }
+    ];
+  };
+
   useEffect(() => {
     // Check if user is logged in as instructor
     const userRole = localStorage.getItem('userRole');
@@ -108,28 +163,9 @@ const InstructorDashboard = () => {
       setModules(JSON.parse(savedModules));
     }
 
-    // Load students (mock data for now)
-    const mockStudents: Student[] = [
-      {
-        id: 1,
-        name: 'John Doe',
-        email: 'john@example.com',
-        profilePicture: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
-      },
-      {
-        id: 2,
-        name: 'Jane Smith',
-        email: 'jane@example.com',
-        profilePicture: 'https://images.unsplash.com/photo-1494790108755-2616b612b5bc?w=150&h=150&fit=crop&crop=face'
-      },
-      {
-        id: 3,
-        name: 'Mike Johnson',
-        email: 'mike@example.com',
-        profilePicture: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face'
-      }
-    ];
-    setStudents(mockStudents);
+    // Load registered students from localStorage
+    const registeredStudents = loadRegisteredUsers();
+    setStudents(registeredStudents);
 
     // Load course assignments
     const savedAssignments = localStorage.getItem('courseAssignments');
@@ -137,6 +173,26 @@ const InstructorDashboard = () => {
       setCourseAssignments(JSON.parse(savedAssignments));
     }
   }, [navigate]);
+
+  // Add effect to refresh students when registeredUsers changes in localStorage
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const updatedStudents = loadRegisteredUsers();
+      setStudents(updatedStudents);
+      console.log('Students updated due to localStorage change:', updatedStudents);
+    };
+
+    // Listen for storage events
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also check periodically for new registrations (in case of same-tab changes)
+    const interval = setInterval(handleStorageChange, 2000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Save assignments to localStorage whenever assignments change
   useEffect(() => {
