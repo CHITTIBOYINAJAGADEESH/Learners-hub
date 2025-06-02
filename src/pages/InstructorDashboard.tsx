@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, ArrowLeft, Users, Plus, Eye, BarChart3, Settings, X, Camera, Save, Edit, Trash2, UserPlus } from 'lucide-react';
+import { BookOpen, ArrowLeft, Users, Plus, Eye, BarChart3, Settings, X, Camera, Save, Edit, Trash2, UserPlus, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Course {
@@ -70,6 +70,7 @@ const InstructorDashboard = () => {
   const [selectedCourseForAssignment, setSelectedCourseForAssignment] = useState<Course | null>(null);
   const [editingModule, setEditingModule] = useState<Module | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [instructorProfile, setInstructorProfile] = useState<InstructorProfile>({
     name: 'Instructor User',
     email: localStorage.getItem('userEmail') || 'instructor@learnershub.com',
@@ -92,20 +93,23 @@ const InstructorDashboard = () => {
   const loadRegisteredUsers = (): Student[] => {
     try {
       const registeredUsers = localStorage.getItem('registeredUsers');
+      console.log('Raw registeredUsers from localStorage:', registeredUsers);
+      
       if (registeredUsers) {
         const users: RegisteredUser[] = JSON.parse(registeredUsers);
+        console.log('Parsed registered users:', users);
         
         // Filter only student users and convert to Student format
         const studentUsers = users
           .filter(user => user.role === 'student')
           .map((user, index) => ({
-            id: parseInt(user.id) || index + 1,
+            id: parseInt(user.id) || Date.now() + index,
             name: user.name,
             email: user.email,
             profilePicture: `https://images.unsplash.com/photo-${1472099645785 + index}?w=150&h=150&fit=crop&crop=face`
           }));
 
-        console.log('Loaded registered student users:', studentUsers);
+        console.log('Filtered student users:', studentUsers);
         return studentUsers;
       }
     } catch (error) {
@@ -113,6 +117,7 @@ const InstructorDashboard = () => {
     }
 
     // Fallback to default students if no registered users found
+    console.log('Using fallback students');
     return [
       {
         id: 1,
@@ -133,6 +138,32 @@ const InstructorDashboard = () => {
         profilePicture: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face'
       }
     ];
+  };
+
+  // Function to refresh student list manually
+  const refreshStudentList = async () => {
+    setIsRefreshing(true);
+    console.log('Manually refreshing student list...');
+    
+    try {
+      const updatedStudents = loadRegisteredUsers();
+      setStudents(updatedStudents);
+      console.log('Students refreshed:', updatedStudents);
+      
+      toast({
+        title: "Students Updated",
+        description: `Loaded ${updatedStudents.length} students from the registry.`,
+      });
+    } catch (error) {
+      console.error('Error refreshing students:', error);
+      toast({
+        title: "Refresh Failed",
+        description: "Could not refresh student list. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
   };
 
   useEffect(() => {
@@ -174,25 +205,48 @@ const InstructorDashboard = () => {
     }
   }, [navigate]);
 
-  // Add effect to refresh students when registeredUsers changes in localStorage
+  // Enhanced effect to refresh students when registeredUsers changes
   useEffect(() => {
-    const handleStorageChange = () => {
-      const updatedStudents = loadRegisteredUsers();
-      setStudents(updatedStudents);
-      console.log('Students updated due to localStorage change:', updatedStudents);
+    const handleStorageChange = (e?: StorageEvent) => {
+      // Only update if registeredUsers key changed or if called manually
+      if (!e || e.key === 'registeredUsers' || e.key === null) {
+        console.log('Storage change detected, refreshing students...');
+        const updatedStudents = loadRegisteredUsers();
+        setStudents(updatedStudents);
+        console.log('Students updated due to storage change:', updatedStudents);
+      }
     };
 
-    // Listen for storage events
+    // Listen for storage events (works for other tabs)
     window.addEventListener('storage', handleStorageChange);
     
-    // Also check periodically for new registrations (in case of same-tab changes)
-    const interval = setInterval(handleStorageChange, 2000);
+    // Enhanced polling for same-tab changes with faster refresh
+    const interval = setInterval(() => {
+      handleStorageChange();
+    }, 1000); // Check every second
+
+    // Also check when window regains focus
+    const handleFocus = () => {
+      console.log('Window focused, refreshing students...');
+      handleStorageChange();
+    };
+    window.addEventListener('focus', handleFocus);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleFocus);
       clearInterval(interval);
     };
   }, []);
+
+  // Refresh students when assignment modal opens
+  useEffect(() => {
+    if (showAssignmentModal) {
+      console.log('Assignment modal opened, refreshing students...');
+      const latestStudents = loadRegisteredUsers();
+      setStudents(latestStudents);
+    }
+  }, [showAssignmentModal]);
 
   // Save assignments to localStorage whenever assignments change
   useEffect(() => {
@@ -244,6 +298,10 @@ const InstructorDashboard = () => {
   };
 
   const handleAssignCourse = (course: Course) => {
+    console.log('Opening assignment modal for course:', course.title);
+    // Refresh students before opening modal
+    const latestStudents = loadRegisteredUsers();
+    setStudents(latestStudents);
     setSelectedCourseForAssignment(course);
     setShowAssignmentModal(true);
   };
@@ -421,6 +479,15 @@ const InstructorDashboard = () => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              <button
+                onClick={refreshStudentList}
+                disabled={isRefreshing}
+                className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                title="Refresh student list"
+              >
+                <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span className="text-sm">Refresh Students</span>
+              </button>
               <div className="flex items-center space-x-3">
                 <img
                   src={instructorProfile.profilePicture}
@@ -476,12 +543,22 @@ const InstructorDashboard = () => {
                 <h3 className="text-xl font-poppins font-bold text-white">
                   Assign Course: {selectedCourseForAssignment.title}
                 </h3>
-                <button 
-                  onClick={() => setShowAssignmentModal(false)}
-                  className="text-gray-400 hover:text-white"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={refreshStudentList}
+                    disabled={isRefreshing}
+                    className="text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                    title="Refresh student list"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  </button>
+                  <button 
+                    onClick={() => setShowAssignmentModal(false)}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
               
               <AssignmentForm
@@ -490,6 +567,7 @@ const InstructorDashboard = () => {
                 existingAssignments={courseAssignments}
                 onAssign={handleConfirmAssignment}
                 onCancel={() => setShowAssignmentModal(false)}
+                onRefresh={refreshStudentList}
               />
             </div>
           </div>
@@ -760,10 +838,19 @@ const InstructorDashboard = () => {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-poppins font-bold text-white">Available Courses</h2>
-              <p className="text-gray-400">Courses created by Admin</p>
+              <div className="flex items-center space-x-4">
+                <span className="text-gray-400">Students: {students.length} registered</span>
+                <button
+                  onClick={refreshStudentList}
+                  disabled={isRefreshing}
+                  className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
+                </button>
+              </div>
             </div>
 
-            {/* Courses Grid */}
             <div className="course-grid">
               {availableCourses.map((course) => (
                 <div key={course.id} className="lms-card">
@@ -818,7 +905,6 @@ const InstructorDashboard = () => {
               </button>
             </div>
 
-            {/* Modules Grid */}
             <div className="course-grid">
               {modules.map((module) => {
                 const course = availableCourses.find(c => c.id === module.courseId);
@@ -921,13 +1007,14 @@ const InstructorDashboard = () => {
   );
 };
 
-// Assignment Form Component
-const AssignmentForm = ({ course, students, existingAssignments, onAssign, onCancel }: {
+// Enhanced Assignment Form Component
+const AssignmentForm = ({ course, students, existingAssignments, onAssign, onCancel, onRefresh }: {
   course: Course;
   students: Student[];
   existingAssignments: CourseAssignment[];
   onAssign: (studentIds: number[]) => void;
   onCancel: () => void;
+  onRefresh: () => void;
 }) => {
   const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
 
@@ -945,49 +1032,72 @@ const AssignmentForm = ({ course, students, existingAssignments, onAssign, onCan
 
   return (
     <div className="space-y-4">
-      <p className="text-gray-400">Select students to assign to this course:</p>
+      <div className="flex items-center justify-between">
+        <p className="text-gray-400">Select students to assign to this course:</p>
+        <div className="flex items-center space-x-2 text-sm">
+          <span className="text-gray-500">Total students: {students.length}</span>
+          <button
+            onClick={onRefresh}
+            className="text-lms-green hover:text-green-400 transition-colors"
+          >
+            Refresh list
+          </button>
+        </div>
+      </div>
       
       <div className="space-y-2 max-h-60 overflow-y-auto">
-        {students.map((student) => {
-          const isAlreadyAssigned = alreadyAssignedStudents.includes(student.id);
-          const isSelected = selectedStudents.includes(student.id);
-          
-          return (
-            <div
-              key={student.id}
-              className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                isAlreadyAssigned 
-                  ? 'bg-gray-700/50 cursor-not-allowed'
-                  : isSelected 
-                    ? 'bg-lms-blue/20 border border-lms-blue' 
-                    : 'bg-lms-dark hover:bg-gray-700'
-              }`}
-              onClick={() => !isAlreadyAssigned && handleStudentToggle(student.id)}
+        {students.length === 0 ? (
+          <div className="text-center py-8 text-gray-400">
+            <p>No students found.</p>
+            <button
+              onClick={onRefresh}
+              className="mt-2 text-lms-green hover:text-green-400 transition-colors"
             >
-              <img
-                src={student.profilePicture}
-                alt={student.name}
-                className="w-10 h-10 rounded-full object-cover"
-              />
-              <div className="flex-1">
-                <h4 className={`font-medium ${isAlreadyAssigned ? 'text-gray-500' : 'text-white'}`}>
-                  {student.name}
-                </h4>
-                <p className="text-gray-400 text-sm">{student.email}</p>
-              </div>
-              {isAlreadyAssigned && (
-                <span className="text-xs text-gray-500 bg-gray-600 px-2 py-1 rounded">
-                  Already Assigned
-                </span>
-              )}
-              {isSelected && !isAlreadyAssigned && (
-                <div className="w-5 h-5 bg-lms-blue rounded-full flex items-center justify-center">
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
+              Click to refresh student list
+            </button>
+          </div>
+        ) : (
+          students.map((student) => {
+            const isAlreadyAssigned = alreadyAssignedStudents.includes(student.id);
+            const isSelected = selectedStudents.includes(student.id);
+            
+            return (
+              <div
+                key={student.id}
+                className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                  isAlreadyAssigned 
+                    ? 'bg-gray-700/50 cursor-not-allowed'
+                    : isSelected 
+                      ? 'bg-lms-blue/20 border border-lms-blue' 
+                      : 'bg-lms-dark hover:bg-gray-700'
+                }`}
+                onClick={() => !isAlreadyAssigned && handleStudentToggle(student.id)}
+              >
+                <img
+                  src={student.profilePicture}
+                  alt={student.name}
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+                <div className="flex-1">
+                  <h4 className={`font-medium ${isAlreadyAssigned ? 'text-gray-500' : 'text-white'}`}>
+                    {student.name}
+                  </h4>
+                  <p className="text-gray-400 text-sm">{student.email}</p>
                 </div>
-              )}
-            </div>
-          );
-        })}
+                {isAlreadyAssigned && (
+                  <span className="text-xs text-gray-500 bg-gray-600 px-2 py-1 rounded">
+                    Already Assigned
+                  </span>
+                )}
+                {isSelected && !isAlreadyAssigned && (
+                  <div className="w-5 h-5 bg-lms-blue rounded-full flex items-center justify-center">
+                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
 
       <div className="flex space-x-3 pt-4">
