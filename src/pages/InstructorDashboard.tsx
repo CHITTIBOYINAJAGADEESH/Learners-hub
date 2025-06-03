@@ -121,29 +121,50 @@ const InstructorDashboard = () => {
     return [];
   };
 
-  // Function to refresh student list manually
-  const refreshStudentList = async () => {
+  // Enhanced function to refresh student list with real-time update
+  const refreshStudentList = async (showToast = true) => {
     setIsRefreshing(true);
-    console.log('Manually refreshing student list...');
+    console.log('Refreshing student list...');
     
     try {
       const updatedStudents = loadRegisteredUsers();
-      setStudents(updatedStudents);
-      console.log('Students refreshed successfully:', updatedStudents);
+      console.log('Current students:', students);
+      console.log('Updated students:', updatedStudents);
       
-      toast({
-        title: "Students Updated",
-        description: `Found ${updatedStudents.length} registered students.`,
-      });
+      // Check if there are actual changes
+      const currentStudentIds = students.map(s => s.id).sort();
+      const updatedStudentIds = updatedStudents.map(s => s.id).sort();
+      const hasChanges = JSON.stringify(currentStudentIds) !== JSON.stringify(updatedStudentIds);
+      
+      if (hasChanges) {
+        console.log('Student list has changes, updating...');
+        setStudents(updatedStudents);
+        
+        // Dispatch custom event for real-time updates
+        window.dispatchEvent(new CustomEvent('studentsUpdated', {
+          detail: { students: updatedStudents }
+        }));
+        
+        if (showToast) {
+          toast({
+            title: "Students Updated",
+            description: `Found ${updatedStudents.length} registered students.`,
+          });
+        }
+      } else {
+        console.log('No changes in student list');
+      }
     } catch (error) {
       console.error('Error refreshing students:', error);
-      toast({
-        title: "Refresh Failed",
-        description: "Could not refresh student list. Please try again.",
-        variant: "destructive"
-      });
+      if (showToast) {
+        toast({
+          title: "Refresh Failed",
+          description: "Could not refresh student list. Please try again.",
+          variant: "destructive"
+        });
+      }
     } finally {
-      setTimeout(() => setIsRefreshing(false), 500);
+      setTimeout(() => setIsRefreshing(false), 300);
     }
   };
 
@@ -187,21 +208,20 @@ const InstructorDashboard = () => {
     }
   }, [navigate]);
 
-  // Enhanced effect to refresh students when registeredUsers changes - more frequent polling
+  // Enhanced real-time student update system
   useEffect(() => {
-    let lastUsersHash = '';
+    let lastUsersString = '';
+    let intervalId: NodeJS.Timeout;
 
     const checkForUpdates = () => {
       try {
         const registeredUsers = localStorage.getItem('registeredUsers');
-        const currentHash = registeredUsers ? btoa(registeredUsers).substring(0, 50) : '';
+        const currentUsersString = registeredUsers || '';
         
-        if (currentHash !== lastUsersHash) {
+        if (currentUsersString !== lastUsersString) {
           console.log('Detected change in registered users, updating student list...');
-          lastUsersHash = currentHash;
-          const updatedStudents = loadRegisteredUsers();
-          setStudents(updatedStudents);
-          console.log('Student list updated with new users:', updatedStudents);
+          lastUsersString = currentUsersString;
+          refreshStudentList(false); // Don't show toast for automatic updates
         }
       } catch (error) {
         console.error('Error checking for user updates:', error);
@@ -215,45 +235,53 @@ const InstructorDashboard = () => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'registeredUsers' || e.key === null) {
         console.log('Storage event detected for registeredUsers');
-        checkForUpdates();
+        setTimeout(checkForUpdates, 100); // Small delay to ensure data is written
       }
     };
-    window.addEventListener('storage', handleStorageChange);
-    
-    // More frequent polling for same-tab changes (every 500ms)
-    const interval = setInterval(checkForUpdates, 500);
+
+    // Listen for custom events (works for same tab)
+    const handleCustomStudentUpdate = (e: CustomEvent) => {
+      console.log('Custom student update event received');
+      checkForUpdates();
+    };
+
+    // More frequent polling for same-tab changes (every 200ms)
+    intervalId = setInterval(checkForUpdates, 200);
 
     // Check when window regains focus
     const handleFocus = () => {
       console.log('Window focused, checking for student updates...');
       checkForUpdates();
     };
-    window.addEventListener('focus', handleFocus);
 
-    // Check when component becomes visible
+    // Check when page becomes visible
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         console.log('Page became visible, checking for student updates...');
         checkForUpdates();
       }
     };
+
+    // Add all event listeners
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('studentsUpdated', handleCustomStudentUpdate as EventListener);
+    window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('studentsUpdated', handleCustomStudentUpdate as EventListener);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      clearInterval(interval);
+      clearInterval(intervalId);
     };
   }, []);
 
-  // Refresh students when assignment modal opens
+  // Force refresh students when assignment modal opens
   useEffect(() => {
     if (showAssignmentModal) {
       console.log('Assignment modal opened, force refreshing students...');
-      const latestStudents = loadRegisteredUsers();
-      setStudents(latestStudents);
-      console.log('Students updated for assignment modal:', latestStudents);
+      refreshStudentList(false);
     }
   }, [showAssignmentModal]);
 
@@ -309,9 +337,7 @@ const InstructorDashboard = () => {
   const handleAssignCourse = (course: Course) => {
     console.log('Opening assignment modal for course:', course.title);
     // Force refresh students before opening modal
-    const latestStudents = loadRegisteredUsers();
-    console.log('Latest students before assignment:', latestStudents);
-    setStudents(latestStudents);
+    refreshStudentList(false);
     setSelectedCourseForAssignment(course);
     setShowAssignmentModal(true);
   };
@@ -490,7 +516,7 @@ const InstructorDashboard = () => {
             </div>
             <div className="flex items-center space-x-4">
               <button
-                onClick={refreshStudentList}
+                onClick={() => refreshStudentList(true)}
                 disabled={isRefreshing}
                 className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
                 title="Refresh student list"
@@ -555,7 +581,7 @@ const InstructorDashboard = () => {
                 </h3>
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={refreshStudentList}
+                    onClick={() => refreshStudentList(true)}
                     disabled={isRefreshing}
                     className="text-gray-400 hover:text-white transition-colors disabled:opacity-50"
                     title="Refresh student list"
@@ -577,7 +603,7 @@ const InstructorDashboard = () => {
                 existingAssignments={courseAssignments}
                 onAssign={handleConfirmAssignment}
                 onCancel={() => setShowAssignmentModal(false)}
-                onRefresh={refreshStudentList}
+                onRefresh={() => refreshStudentList(true)}
               />
             </div>
           </div>
@@ -851,7 +877,7 @@ const InstructorDashboard = () => {
               <div className="flex items-center space-x-4">
                 <span className="text-gray-400">Registered Students: {students.length}</span>
                 <button
-                  onClick={refreshStudentList}
+                  onClick={() => refreshStudentList(true)}
                   disabled={isRefreshing}
                   className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
                 >
@@ -868,7 +894,7 @@ const InstructorDashboard = () => {
                   Students need to register on the platform before they can be assigned to courses.
                 </p>
                 <button
-                  onClick={refreshStudentList}
+                  onClick={() => refreshStudentList(true)}
                   className="mt-4 lms-button-primary"
                 >
                   Check for New Students
@@ -1033,7 +1059,7 @@ const InstructorDashboard = () => {
   );
 };
 
-// Enhanced Assignment Form Component - updated to handle empty student list better
+// Enhanced Assignment Form Component with better real-time updates
 const AssignmentForm = ({ course, students, existingAssignments, onAssign, onCancel, onRefresh }: {
   course: Course;
   students: Student[];
