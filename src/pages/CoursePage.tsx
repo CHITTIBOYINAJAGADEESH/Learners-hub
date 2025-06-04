@@ -1,8 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { BookOpen, ArrowLeft, Play, CheckCircle, Lock, Award, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import jsPDF from 'jspdf';
 
 interface MCQ {
   id: number;
@@ -431,122 +431,118 @@ const CoursePage = () => {
     }
 
     const studentName = localStorage.getItem('userName') || 'Student';
-    const completionDate = new Date(studentProgress.completionDate!).toLocaleDateString();
+    const completionDate = new Date(studentProgress.completionDate!);
     
-    // Create certificate HTML
-    const certificateHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Certificate of Completion</title>
-        <style>
-          body { 
-            font-family: 'Georgia', serif; 
-            margin: 0; 
-            padding: 40px; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          .certificate {
-            background: white;
-            padding: 60px;
-            border: 10px solid #gold;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            text-align: center;
-            max-width: 800px;
-            position: relative;
-          }
-          .certificate::before {
-            content: '';
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            right: 20px;
-            bottom: 20px;
-            border: 3px solid #ddd;
-            border-radius: 10px;
-          }
-          h1 { 
-            font-size: 48px; 
-            color: #333; 
-            margin-bottom: 20px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-          }
-          .subtitle { 
-            font-size: 24px; 
-            color: #666; 
-            margin-bottom: 40px; 
-          }
-          .student-name { 
-            font-size: 36px; 
-            color: #8B4513; 
-            font-weight: bold; 
-            margin: 30px 0;
-            text-decoration: underline;
-          }
-          .course-title { 
-            font-size: 28px; 
-            color: #333; 
-            margin: 30px 0;
-            font-style: italic;
-          }
-          .completion-date { 
-            font-size: 18px; 
-            color: #666; 
-            margin-top: 40px; 
-          }
-          .signature-section { 
-            display: flex; 
-            justify-content: space-between; 
-            margin-top: 60px; 
-            font-size: 16px;
-          }
-          .signature-line { 
-            border-top: 2px solid #333; 
-            width: 200px; 
-            padding-top: 10px; 
-          }
-        </style>
-      </head>
-      <body>
-        <div class="certificate">
-          <h1>Certificate of Completion</h1>
-          <div class="subtitle">This is to certify that</div>
-          <div class="student-name">${studentName}</div>
-          <div class="subtitle">has successfully completed the course</div>
-          <div class="course-title">${course.title}</div>
-          <div class="completion-date">Completed on: ${completionDate}</div>
-          <div class="signature-section">
-            <div class="signature-line">
-              <div>Student Signature</div>
-            </div>
-            <div class="signature-line">
-              <div>Instructor Signature</div>
-            </div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    // Create PDF certificate
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
 
-    // Create and download the certificate
-    const blob = new Blob([certificateHtml], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${course.title}_Certificate_${studentName.replace(/\s+/g, '_')}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // Set up the certificate design
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    
+    // Background
+    pdf.setFillColor(102, 126, 234, 0.1);
+    pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+    
+    // Border
+    pdf.setLineWidth(3);
+    pdf.setDrawColor(212, 175, 55); // Gold color
+    pdf.rect(10, 10, pageWidth - 20, pageHeight - 20);
+    
+    // Inner border
+    pdf.setLineWidth(1);
+    pdf.setDrawColor(200, 200, 200);
+    pdf.rect(15, 15, pageWidth - 30, pageHeight - 30);
+    
+    // Header - Learners Hub
+    pdf.setFontSize(16);
+    pdf.setTextColor(102, 126, 234);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('🎓 Learners Hub', pageWidth / 2, 30, { align: 'center' });
+    
+    // Certificate Title
+    pdf.setFontSize(36);
+    pdf.setTextColor(102, 126, 234);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Certificate of Completion', pageWidth / 2, 55, { align: 'center' });
+    
+    // Subtitle
+    pdf.setFontSize(18);
+    pdf.setTextColor(60, 60, 60);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('This is to certify that', pageWidth / 2, 75, { align: 'center' });
+    
+    // Student Name
+    pdf.setFontSize(28);
+    pdf.setTextColor(118, 75, 162); // Purple color
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(studentName, pageWidth / 2, 95, { align: 'center' });
+    
+    // Course completion text
+    pdf.setFontSize(18);
+    pdf.setTextColor(60, 60, 60);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('has successfully completed the course', pageWidth / 2, 115, { align: 'center' });
+    
+    // Course Name
+    pdf.setFontSize(24);
+    pdf.setTextColor(60, 60, 60);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(course.title, pageWidth / 2, 135, { align: 'center' });
+    
+    // Completion Details
+    pdf.setFontSize(14);
+    pdf.setTextColor(100, 100, 100);
+    pdf.setFont('helvetica', 'normal');
+    const completionDateStr = completionDate.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    pdf.text(`Completion Date: ${completionDateStr}`, pageWidth / 2, 155, { align: 'center' });
+    pdf.text('Grade: Excellent (Pass)', pageWidth / 2, 165, { align: 'center' });
+    
+    // Signature lines
+    const signatureY = pageHeight - 40;
+    const signature1X = pageWidth / 3;
+    const signature2X = (pageWidth / 3) * 2;
+    
+    // Draw signature lines
+    pdf.setLineWidth(0.5);
+    pdf.setDrawColor(60, 60, 60);
+    pdf.line(signature1X - 40, signatureY, signature1X + 40, signatureY);
+    pdf.line(signature2X - 40, signatureY, signature2X + 40, signatureY);
+    
+    // Signature labels
+    pdf.setFontSize(10);
+    pdf.setTextColor(60, 60, 60);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Student Signature', signature1X, signatureY + 8, { align: 'center' });
+    pdf.text('Instructor Signature', signature2X, signatureY + 8, { align: 'center' });
+    
+    // Add verification stamp
+    pdf.setFontSize(12);
+    pdf.setTextColor(220, 38, 38);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('CERTIFIED', pageWidth - 40, 40, { align: 'center', angle: -15 });
+    pdf.text('COMPLETED', pageWidth - 40, 50, { align: 'center', angle: -15 });
+    
+    // Draw stamp circle
+    pdf.setDrawColor(220, 38, 38);
+    pdf.setLineWidth(2);
+    pdf.circle(pageWidth - 40, 45, 15, 'S');
+    
+    // Download the PDF
+    const fileName = `${course.title}_Certificate_${studentName.replace(/\s+/g, '_')}.pdf`;
+    pdf.save(fileName);
 
     toast({
       title: "Certificate Downloaded",
-      description: "Your certificate has been downloaded successfully!",
+      description: "Your PDF certificate has been downloaded successfully!",
     });
   };
 

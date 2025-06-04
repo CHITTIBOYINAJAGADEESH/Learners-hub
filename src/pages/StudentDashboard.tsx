@@ -1,8 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BookOpen, ArrowLeft, Play, CheckCircle, Award, User, BarChart3, Settings, X, Camera, Download, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import jsPDF from 'jspdf';
 
 interface Course {
   id: number;
@@ -230,194 +230,129 @@ const StudentDashboard = () => {
   };
 
   const handleDownloadCertificate = (certificate: Certificate) => {
-    const certificateContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Certificate - ${certificate.courseName}</title>
-        <style>
-          body {
-            font-family: 'Times New Roman', serif;
-            text-align: center;
-            padding: 40px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-          }
-          .certificate {
-            background: white;
-            padding: 60px;
-            border: 15px solid gold;
-            border-radius: 20px;
-            box-shadow: 0 0 50px rgba(0,0,0,0.3);
-            max-width: 900px;
-            width: 100%;
-            position: relative;
-          }
-          .stamp {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 120px;
-            height: 120px;
-            border: 5px solid #dc2626;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(220, 38, 38, 0.1);
-            transform: rotate(-15deg);
-          }
-          .stamp-text {
-            color: #dc2626;
-            font-weight: bold;
-            font-size: 16px;
-            text-align: center;
-          }
-          .logo {
-            font-size: 28px;
-            color: #667eea;
-            font-weight: bold;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-          }
-          .title {
-            font-size: 52px;
-            color: #667eea;
-            margin-bottom: 30px;
-            font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-          }
-          .subtitle {
-            font-size: 24px;
-            color: #333;
-            margin-bottom: 40px;
-          }
-          .student-name {
-            font-size: 42px;
-            color: #764ba2;
-            font-weight: bold;
-            margin: 30px 0;
-            text-decoration: underline;
-            text-decoration-color: gold;
-          }
-          .course-name {
-            font-size: 32px;
-            color: #333;
-            margin: 30px 0;
-            font-style: italic;
-            font-weight: bold;
-          }
-          .custom-message {
-            font-size: 18px;
-            color: #555;
-            margin: 30px 0;
-            line-height: 1.6;
-            font-style: italic;
-            max-width: 700px;
-            margin-left: auto;
-            margin-right: auto;
-          }
-          .details {
-            font-size: 20px;
-            color: #666;
-            margin: 25px 0;
-          }
-          .signature-area {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 80px;
-            padding-top: 30px;
-          }
-          .signature {
-            border-top: 2px solid #333;
-            padding-top: 15px;
-            min-width: 200px;
-            text-align: center;
-          }
-          .signature-title {
-            font-size: 16px;
-            color: #333;
-            font-weight: bold;
-          }
-          .signature-name {
-            font-size: 14px;
-            color: #666;
-            margin-top: 5px;
-          }
-          .ornament {
-            font-size: 24px;
-            color: gold;
-            margin: 20px 0;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="certificate">
-          <div class="stamp">
-            <div class="stamp-text">CERTIFIED<br>COMPLETED</div>
-          </div>
-          
-          <div class="logo">🎓 Learners Hub</div>
-          <div class="ornament">✦ ✧ ✦</div>
-          
-          <div class="title">Certificate of Completion</div>
-          <div class="subtitle">This is to certify that</div>
-          
-          <div class="student-name">${certificate.studentName || studentProfile.name}</div>
-          
-          <div class="subtitle">has successfully completed the course</div>
-          <div class="course-name">${certificate.courseName}</div>
-          
-          <div class="ornament">❦ ❦ ❦</div>
-          
-          ${certificate.customMessage ? `<div class="custom-message">${certificate.customMessage}</div>` : ''}
-          
-          <div class="details">Completion Date: ${new Date(certificate.completionDate).toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-          })}</div>
-          <div class="details">Grade: ${certificate.grade}</div>
-          
-          <div class="signature-area">
-            <div class="signature">
-              <div class="signature-title">Course Instructor</div>
-              <div class="signature-name">Academic Department</div>
-            </div>
-            <div class="signature">
-              <div class="signature-title">Academic Director</div>
-              <div class="signature-name">Learners Hub</div>
-            </div>
-            <div class="signature">
-              <div class="signature-title">Dean of Studies</div>
-              <div class="signature-name">Education Board</div>
-            </div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
 
-    const blob = new Blob([certificateContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Certificate-${certificate.courseName.replace(/\s+/g, '-')}-${certificate.studentName?.replace(/\s+/g, '-') || 'Student'}.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    // Set up the certificate design
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    
+    // Background gradient effect (simulated with rectangles)
+    pdf.setFillColor(102, 126, 234, 0.1);
+    pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+    
+    // Border
+    pdf.setLineWidth(3);
+    pdf.setDrawColor(212, 175, 55); // Gold color
+    pdf.rect(10, 10, pageWidth - 20, pageHeight - 20);
+    
+    // Inner border
+    pdf.setLineWidth(1);
+    pdf.setDrawColor(200, 200, 200);
+    pdf.rect(15, 15, pageWidth - 30, pageHeight - 30);
+    
+    // Header - Learners Hub
+    pdf.setFontSize(16);
+    pdf.setTextColor(102, 126, 234);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('🎓 Learners Hub', pageWidth / 2, 30, { align: 'center' });
+    
+    // Certificate Title
+    pdf.setFontSize(36);
+    pdf.setTextColor(102, 126, 234);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Certificate of Completion', pageWidth / 2, 55, { align: 'center' });
+    
+    // Subtitle
+    pdf.setFontSize(18);
+    pdf.setTextColor(60, 60, 60);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('This is to certify that', pageWidth / 2, 75, { align: 'center' });
+    
+    // Student Name
+    pdf.setFontSize(28);
+    pdf.setTextColor(118, 75, 162); // Purple color
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(certificate.studentName || studentProfile.name, pageWidth / 2, 95, { align: 'center' });
+    
+    // Course completion text
+    pdf.setFontSize(18);
+    pdf.setTextColor(60, 60, 60);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('has successfully completed the course', pageWidth / 2, 115, { align: 'center' });
+    
+    // Course Name
+    pdf.setFontSize(24);
+    pdf.setTextColor(60, 60, 60);
+    pdf.setFont('helvetica', 'bold');
+    const courseTitle = certificate.courseName;
+    pdf.text(courseTitle, pageWidth / 2, 135, { align: 'center' });
+    
+    // Custom Message (if exists)
+    if (certificate.customMessage) {
+      pdf.setFontSize(12);
+      pdf.setTextColor(80, 80, 80);
+      pdf.setFont('helvetica', 'italic');
+      const lines = pdf.splitTextToSize(certificate.customMessage, pageWidth - 60);
+      const messageY = 155;
+      pdf.text(lines, pageWidth / 2, messageY, { align: 'center' });
+    }
+    
+    // Completion Details
+    pdf.setFontSize(14);
+    pdf.setTextColor(100, 100, 100);
+    pdf.setFont('helvetica', 'normal');
+    const completionDate = new Date(certificate.completionDate).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    pdf.text(`Completion Date: ${completionDate}`, pageWidth / 2, 175, { align: 'center' });
+    pdf.text(`Grade: ${certificate.grade}`, pageWidth / 2, 185, { align: 'center' });
+    
+    // Signature lines
+    const signatureY = pageHeight - 40;
+    const signature1X = pageWidth / 4;
+    const signature2X = (pageWidth / 4) * 2;
+    const signature3X = (pageWidth / 4) * 3;
+    
+    // Draw signature lines
+    pdf.setLineWidth(0.5);
+    pdf.setDrawColor(60, 60, 60);
+    pdf.line(signature1X - 30, signatureY, signature1X + 30, signatureY);
+    pdf.line(signature2X - 30, signatureY, signature2X + 30, signatureY);
+    pdf.line(signature3X - 30, signatureY, signature3X + 30, signatureY);
+    
+    // Signature labels
+    pdf.setFontSize(10);
+    pdf.setTextColor(60, 60, 60);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Course Instructor', signature1X, signatureY + 8, { align: 'center' });
+    pdf.text('Academic Director', signature2X, signatureY + 8, { align: 'center' });
+    pdf.text('Dean of Studies', signature3X, signatureY + 8, { align: 'center' });
+    
+    // Add a verification stamp effect
+    pdf.setFontSize(12);
+    pdf.setTextColor(220, 38, 38);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('CERTIFIED', pageWidth - 40, 40, { align: 'center', angle: -15 });
+    pdf.text('COMPLETED', pageWidth - 40, 50, { align: 'center', angle: -15 });
+    
+    // Draw stamp circle
+    pdf.setDrawColor(220, 38, 38);
+    pdf.setLineWidth(2);
+    pdf.circle(pageWidth - 40, 45, 15, 'S');
+    
+    // Download the PDF
+    const fileName = `Certificate-${certificate.courseName.replace(/\s+/g, '-')}-${certificate.studentName?.replace(/\s+/g, '-') || 'Student'}.pdf`;
+    pdf.save(fileName);
 
     toast({
       title: "Certificate Downloaded",
-      description: "Your certificate has been downloaded successfully.",
+      description: "Your PDF certificate has been downloaded successfully.",
     });
   };
 
