@@ -74,6 +74,29 @@ const RegisterPage = () => {
       };
       localStorage.setItem('userProfiles', JSON.stringify(userProfiles));
 
+      // CRITICAL FIX: Store in the format that instructor panel expects
+      const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+      const newUser = {
+        id: userData.id,
+        name: formData.name,
+        email: formData.email,
+        role: selectedRole,
+        createdAt: userData.createdAt
+      };
+      registeredUsers.push(newUser);
+      localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
+
+      console.log('=== REGISTRATION COMPLETE ===');
+      console.log('Stored user in registeredUsers:', newUser);
+      console.log('Total registered users:', registeredUsers.length);
+
+      // Trigger storage event for real-time updates
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'registeredUsers',
+        newValue: JSON.stringify(registeredUsers),
+        storageArea: localStorage
+      }));
+
       // In a real app, this would be sent to an API
       localStorage.setItem('userRole', selectedRole);
       localStorage.setItem('userEmail', formData.email);
