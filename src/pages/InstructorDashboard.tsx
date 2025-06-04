@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BookOpen, ArrowLeft, Users, Plus, Eye, BarChart3, Settings, X, Camera, Save, Edit, Trash2, UserPlus, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -71,6 +71,7 @@ const InstructorDashboard = () => {
   const [editingModule, setEditingModule] = useState<Module | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastStudentCheckTime, setLastStudentCheckTime] = useState<number>(Date.now());
   const [instructorProfile, setInstructorProfile] = useState<InstructorProfile>({
     name: 'Instructor User',
     email: localStorage.getItem('userEmail') || 'instructor@learnershub.com',
@@ -89,8 +90,8 @@ const InstructorDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Function to load registered users from localStorage - ONLY real users, no fallbacks
-  const loadRegisteredUsers = (): Student[] => {
+  // Enhanced function to load registered users from localStorage with better error handling
+  const loadRegisteredUsers = useCallback((): Student[] => {
     try {
       const registeredUsers = localStorage.getItem('registeredUsers');
       console.log('Loading registered users from localStorage:', registeredUsers);
@@ -114,49 +115,56 @@ const InstructorDashboard = () => {
       }
     } catch (error) {
       console.error('Error loading registered users:', error);
+      toast({
+        title: "Error Loading Students",
+        description: "Failed to load student data. Please refresh the page.",
+        variant: "destructive"
+      });
     }
 
-    // Return empty array if no registered users found - NO DEMO USERS
     console.log('No registered users found, returning empty array');
     return [];
-  };
+  }, [toast]);
 
-  // Enhanced function to refresh student list with real-time update
-  const refreshStudentList = async (showToast = true) => {
+  // Enhanced function to refresh student list with proper state management
+  const refreshStudentList = useCallback(async (showToastMessage = true) => {
+    console.log('=== REFRESH STUDENT LIST TRIGGERED ===');
     setIsRefreshing(true);
-    console.log('Refreshing student list...');
     
     try {
       const updatedStudents = loadRegisteredUsers();
-      console.log('Current students:', students);
-      console.log('Updated students:', updatedStudents);
+      console.log('Current students:', students.length);
+      console.log('Updated students:', updatedStudents.length);
       
-      // Check if there are actual changes
-      const currentStudentIds = students.map(s => s.id).sort();
-      const updatedStudentIds = updatedStudents.map(s => s.id).sort();
-      const hasChanges = JSON.stringify(currentStudentIds) !== JSON.stringify(updatedStudentIds);
+      // Compare students by both count and content
+      const hasChanges = students.length !== updatedStudents.length || 
+        JSON.stringify(students.map(s => s.email).sort()) !== JSON.stringify(updatedStudents.map(s => s.email).sort());
       
-      if (hasChanges) {
-        console.log('Student list has changes, updating...');
+      if (hasChanges || students.length === 0) {
+        console.log('Student list has changes, updating state...');
         setStudents(updatedStudents);
+        setLastStudentCheckTime(Date.now());
         
-        // Dispatch custom event for real-time updates
-        window.dispatchEvent(new CustomEvent('studentsUpdated', {
-          detail: { students: updatedStudents }
-        }));
-        
-        if (showToast) {
+        if (showToastMessage) {
           toast({
-            title: "Students Updated",
+            title: "Students Refreshed",
             description: `Found ${updatedStudents.length} registered students.`,
           });
         }
+        
+        console.log('=== STUDENT LIST UPDATED SUCCESSFULLY ===');
       } else {
-        console.log('No changes in student list');
+        console.log('No changes detected in student list');
+        if (showToastMessage) {
+          toast({
+            title: "No Updates",
+            description: "Student list is already up to date.",
+          });
+        }
       }
     } catch (error) {
       console.error('Error refreshing students:', error);
-      if (showToast) {
+      if (showToastMessage) {
         toast({
           title: "Refresh Failed",
           description: "Could not refresh student list. Please try again.",
@@ -164,9 +172,69 @@ const InstructorDashboard = () => {
         });
       }
     } finally {
-      setTimeout(() => setIsRefreshing(false), 300);
+      setTimeout(() => setIsRefreshing(false), 500);
     }
-  };
+  }, [students, loadRegisteredUsers, toast]);
+
+  // Enhanced real-time monitoring system
+  useEffect(() => {
+    console.log('Setting up enhanced student monitoring system...');
+    
+    let pollingInterval: NodeJS.Timeout;
+    let lastRegisteredUsersString = localStorage.getItem('registeredUsers') || '';
+
+    const checkForStudentUpdates = () => {
+      try {
+        const currentRegisteredUsersString = localStorage.getItem('registeredUsers') || '';
+        
+        if (currentRegisteredUsersString !== lastRegisteredUsersString) {
+          console.log('Detected change in registered users, refreshing...');
+          lastRegisteredUsersString = currentRegisteredUsersString;
+          refreshStudentList(false);
+        }
+      } catch (error) {
+        console.error('Error checking for student updates:', error);
+      }
+    };
+
+    // Storage event listener for cross-tab updates
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'registeredUsers') {
+        console.log('Storage event detected for registeredUsers');
+        setTimeout(() => refreshStudentList(false), 100);
+      }
+    };
+
+    // Focus event listener
+    const handleWindowFocus = () => {
+      console.log('Window focused, checking for updates...');
+      refreshStudentList(false);
+    };
+
+    // Visibility change listener
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('Page became visible, checking for updates...');
+        refreshStudentList(false);
+      }
+    };
+
+    // Set up polling every 1 second for real-time updates
+    pollingInterval = setInterval(checkForStudentUpdates, 1000);
+
+    // Add event listeners
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Cleanup function
+    return () => {
+      clearInterval(pollingInterval);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshStudentList]);
 
   useEffect(() => {
     // Check if user is logged in as instructor
@@ -196,7 +264,7 @@ const InstructorDashboard = () => {
       setModules(JSON.parse(savedModules));
     }
 
-    // Load registered students from localStorage - ONLY real users
+    // Initial load of registered students
     console.log('Initial load of registered students...');
     const registeredStudents = loadRegisteredUsers();
     setStudents(registeredStudents);
@@ -206,84 +274,15 @@ const InstructorDashboard = () => {
     if (savedAssignments) {
       setCourseAssignments(JSON.parse(savedAssignments));
     }
-  }, [navigate]);
+  }, [navigate, loadRegisteredUsers]);
 
-  // Enhanced real-time student update system
-  useEffect(() => {
-    let lastUsersString = '';
-    let intervalId: NodeJS.Timeout;
-
-    const checkForUpdates = () => {
-      try {
-        const registeredUsers = localStorage.getItem('registeredUsers');
-        const currentUsersString = registeredUsers || '';
-        
-        if (currentUsersString !== lastUsersString) {
-          console.log('Detected change in registered users, updating student list...');
-          lastUsersString = currentUsersString;
-          refreshStudentList(false); // Don't show toast for automatic updates
-        }
-      } catch (error) {
-        console.error('Error checking for user updates:', error);
-      }
-    };
-
-    // Initial check
-    checkForUpdates();
-
-    // Listen for storage events (works for other tabs)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'registeredUsers' || e.key === null) {
-        console.log('Storage event detected for registeredUsers');
-        setTimeout(checkForUpdates, 100); // Small delay to ensure data is written
-      }
-    };
-
-    // Listen for custom events (works for same tab)
-    const handleCustomStudentUpdate = (e: CustomEvent) => {
-      console.log('Custom student update event received');
-      checkForUpdates();
-    };
-
-    // More frequent polling for same-tab changes (every 200ms)
-    intervalId = setInterval(checkForUpdates, 200);
-
-    // Check when window regains focus
-    const handleFocus = () => {
-      console.log('Window focused, checking for student updates...');
-      checkForUpdates();
-    };
-
-    // Check when page becomes visible
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log('Page became visible, checking for student updates...');
-        checkForUpdates();
-      }
-    };
-
-    // Add all event listeners
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('studentsUpdated', handleCustomStudentUpdate as EventListener);
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('studentsUpdated', handleCustomStudentUpdate as EventListener);
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      clearInterval(intervalId);
-    };
-  }, []);
-
-  // Force refresh students when assignment modal opens
+  // Force refresh when assignment modal opens
   useEffect(() => {
     if (showAssignmentModal) {
       console.log('Assignment modal opened, force refreshing students...');
       refreshStudentList(false);
     }
-  }, [showAssignmentModal]);
+  }, [showAssignmentModal, refreshStudentList]);
 
   // Save assignments to localStorage whenever assignments change
   useEffect(() => {
@@ -298,6 +297,12 @@ const InstructorDashboard = () => {
       localStorage.setItem('instructorModules', JSON.stringify(modules));
     }
   }, [modules]);
+
+  // Enhanced refresh button handler
+  const handleManualRefresh = useCallback(() => {
+    console.log('Manual refresh button clicked');
+    refreshStudentList(true);
+  }, [refreshStudentList]);
 
   const handleLogout = () => {
     localStorage.removeItem('userRole');
@@ -516,13 +521,15 @@ const InstructorDashboard = () => {
             </div>
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => refreshStudentList(true)}
+                onClick={handleManualRefresh}
                 disabled={isRefreshing}
-                className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-lms-green/20 text-lms-green hover:bg-lms-green/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Refresh student list"
               >
                 <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span className="text-sm">Refresh Students</span>
+                <span className="text-sm font-medium">
+                  {isRefreshing ? 'Refreshing...' : `Refresh (${students.length})`}
+                </span>
               </button>
               <div className="flex items-center space-x-3">
                 <img
@@ -581,7 +588,7 @@ const InstructorDashboard = () => {
                 </h3>
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => refreshStudentList(true)}
+                    onClick={handleManualRefresh}
                     disabled={isRefreshing}
                     className="text-gray-400 hover:text-white transition-colors disabled:opacity-50"
                     title="Refresh student list"
@@ -603,7 +610,7 @@ const InstructorDashboard = () => {
                 existingAssignments={courseAssignments}
                 onAssign={handleConfirmAssignment}
                 onCancel={() => setShowAssignmentModal(false)}
-                onRefresh={() => refreshStudentList(true)}
+                onRefresh={handleManualRefresh}
               />
             </div>
           </div>
@@ -875,29 +882,38 @@ const InstructorDashboard = () => {
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-poppins font-bold text-white">Available Courses</h2>
               <div className="flex items-center space-x-4">
-                <span className="text-gray-400">Registered Students: {students.length}</span>
+                <div className="flex items-center space-x-2 px-3 py-2 bg-lms-dark rounded-lg">
+                  <Users className="h-4 w-4 text-lms-green" />
+                  <span className="text-white font-medium">{students.length}</span>
+                  <span className="text-gray-400 text-sm">registered students</span>
+                </div>
                 <button
-                  onClick={() => refreshStudentList(true)}
+                  onClick={handleManualRefresh}
                   disabled={isRefreshing}
-                  className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                  className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-lms-green/20 text-lms-green hover:bg-lms-green/30 transition-colors disabled:opacity-50"
                 >
                   <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  <span>Refresh</span>
+                  <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
                 </button>
               </div>
             </div>
 
             {students.length === 0 && (
               <div className="lms-card text-center py-8">
-                <p className="text-gray-400 mb-4">No registered students found.</p>
-                <p className="text-gray-500 text-sm">
-                  Students need to register on the platform before they can be assigned to courses.
-                </p>
+                <div className="mb-4">
+                  <Users className="h-16 w-16 text-gray-600 mx-auto mb-3" />
+                  <p className="text-gray-400 mb-2 text-lg">No registered students found</p>
+                  <p className="text-gray-500 text-sm">
+                    Students need to register on the platform before they can be assigned to courses.
+                  </p>
+                </div>
                 <button
-                  onClick={() => refreshStudentList(true)}
-                  className="mt-4 lms-button-primary"
+                  onClick={handleManualRefresh}
+                  disabled={isRefreshing}
+                  className="lms-button-primary flex items-center space-x-2 mx-auto"
                 >
-                  Check for New Students
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span>Check for New Students</span>
                 </button>
               </div>
             )}
@@ -1100,6 +1116,7 @@ const AssignmentForm = ({ course, students, existingAssignments, onAssign, onCan
       <div className="space-y-2 max-h-60 overflow-y-auto">
         {students.length === 0 ? (
           <div className="text-center py-8 text-gray-400">
+            <Users className="h-12 w-12 text-gray-600 mx-auto mb-3" />
             <p className="mb-2">No registered students found in the system.</p>
             <p className="text-sm text-gray-500 mb-4">
               Students must register on the platform before they can be assigned to courses.
