@@ -1,150 +1,114 @@
 
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, ArrowLeft, User, Lock, Users, GraduationCap, Shield } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { BookOpen, Eye, EyeOff, User, GraduationCap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-type UserRole = 'student' | 'instructor' | 'admin';
-
 const LoginPage = () => {
-  const [selectedRole, setSelectedRole] = useState<UserRole>('student');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [userType, setUserType] = useState<'student' | 'instructor'>('student');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  const roles = [
-    { id: 'student' as UserRole, name: 'Student', icon: GraduationCap, color: 'lms-purple' },
-    { id: 'instructor' as UserRole, name: 'Instructor', icon: BookOpen, color: 'lms-green' },
-    { id: 'admin' as UserRole, name: 'Admin', icon: Shield, color: 'lms-blue' }
-  ];
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate login process
-    setTimeout(() => {
-      // Mock authentication - In real app, this would be an API call
-      const mockUsers = {
-        admin: { email: 'admin@learnershub.com', password: 'admin123' },
-        instructor: { email: 'instructor@learnershub.com', password: 'instructor123' },
-        student: { email: 'student@learnershub.com', password: 'student123' }
-      };
+    try {
+      // Get registered users
+      const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+      
+      // Find user by email and role
+      const user = registeredUsers.find((u: any) => 
+        u.email === email && u.role === userType
+      );
 
-      const userExists = mockUsers[selectedRole] && 
-        mockUsers[selectedRole].email === email && 
-        mockUsers[selectedRole].password === password;
-
-      if (userExists || (email && password)) {
-        // Store user session
-        localStorage.setItem('userRole', selectedRole);
-        localStorage.setItem('userEmail', email);
-        localStorage.setItem('isLoggedIn', 'true');
-
-        // Store login information for admin panel
-        const loginData = {
-          id: Date.now().toString(),
-          email,
-          role: selectedRole,
-          loginTime: new Date().toISOString(),
-          type: 'login'
-        };
-
-        // Get existing admin data
-        const existingAdminData = JSON.parse(localStorage.getItem('adminUserData') || '[]');
-        existingAdminData.push(loginData);
-        localStorage.setItem('adminUserData', JSON.stringify(existingAdminData));
-
-        // Create user profile if it doesn't exist
-        const userProfiles = JSON.parse(localStorage.getItem('userProfiles') || '{}');
-        if (!userProfiles[email]) {
-          userProfiles[email] = {
-            id: Date.now().toString(),
-            name: email.split('@')[0], // Default name from email
-            email,
-            role: selectedRole,
-            createdAt: new Date().toISOString(),
-            profilePicture: 'https://images.unsplash.com/photo-1494790108755-2616b612b692?w=150&h=150&fit=crop&crop=face'
-          };
-          localStorage.setItem('userProfiles', JSON.stringify(userProfiles));
-        }
-
-        toast({
-          title: "Login Successful!",
-          description: `Welcome back, ${selectedRole}!`,
-        });
-
-        // Navigate to appropriate dashboard
-        switch (selectedRole) {
-          case 'admin':
-            navigate('/admin');
-            break;
-          case 'instructor':
-            navigate('/instructor');
-            break;
-          case 'student':
-            navigate('/student');
-            break;
-        }
-      } else {
+      if (!user) {
         toast({
           title: "Login Failed",
-          description: "Invalid credentials. Please try again.",
-          variant: "destructive",
+          description: `No ${userType} account found with this email.`,
+          variant: "destructive"
         });
+        setIsLoading(false);
+        return;
       }
+
+      // For demo purposes, accept any password
+      // In a real app, you'd verify the password hash
+      
+      // Set login state
+      localStorage.setItem('isLoggedIn', 'true');
+      localStorage.setItem('userRole', userType);
+      localStorage.setItem('userEmail', email);
+      
+      toast({
+        title: "Login Successful",
+        description: `Welcome back! Redirecting to your ${userType} dashboard.`,
+      });
+
+      // Navigate based on user type
+      setTimeout(() => {
+        if (userType === 'student') {
+          navigate('/student');
+        } else if (userType === 'instructor') {
+          navigate('/instructor');
+        }
+      }, 1000);
+
+    } catch (error) {
+      console.error('Login error:', error);
+      toast({
+        title: "Login Failed",
+        description: "An error occurred during login. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-lms-dark flex items-center justify-center px-6">
+    <div className="min-h-screen bg-lms-dark flex items-center justify-center px-4">
       <div className="max-w-md w-full">
         {/* Header */}
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center space-x-2 text-gray-400 hover:text-white mb-6">
-            <ArrowLeft className="h-5 w-5" />
-            <span>Back to Home</span>
-          </Link>
-          
           <div className="flex items-center justify-center space-x-2 mb-4">
-            <BookOpen className="h-8 w-8 text-lms-blue" />
-            <span className="text-2xl font-poppins font-bold text-white">Learners Hub</span>
+            <BookOpen className="h-10 w-10 text-lms-purple" />
+            <span className="text-3xl font-poppins font-bold text-white">Learners Hub</span>
           </div>
-          
-          <h1 className="text-3xl font-poppins font-bold text-white mb-2">Welcome Back</h1>
-          <p className="text-gray-400">Sign in to your account</p>
+          <h2 className="text-xl text-gray-300">Sign in to your account</h2>
         </div>
 
-        {/* Role Selection */}
-        <div className="mb-8">
-          <label className="block text-sm font-medium text-gray-300 mb-3">Select Your Role</label>
-          <div className="grid grid-cols-3 gap-3">
-            {roles.map((role) => {
-              const Icon = role.icon;
-              return (
-                <button
-                  key={role.id}
-                  onClick={() => setSelectedRole(role.id)}
-                  className={`p-4 rounded-lg border-2 transition-all duration-300 ${
-                    selectedRole === role.id
-                      ? `border-${role.color} bg-${role.color}/10`
-                      : 'border-gray-600 hover:border-gray-500'
-                  }`}
-                >
-                  <Icon className={`h-6 w-6 mx-auto mb-2 ${
-                    selectedRole === role.id ? `text-${role.color}` : 'text-gray-400'
-                  }`} />
-                  <span className={`text-sm font-medium ${
-                    selectedRole === role.id ? 'text-white' : 'text-gray-400'
-                  }`}>
-                    {role.name}
-                  </span>
-                </button>
-              );
-            })}
+        {/* User Type Selection */}
+        <div className="mb-6">
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setUserType('student')}
+              className={`flex items-center justify-center space-x-2 py-3 px-4 rounded-lg border-2 transition-all ${
+                userType === 'student'
+                  ? 'border-lms-blue bg-lms-blue/10 text-lms-blue'
+                  : 'border-gray-600 text-gray-400 hover:border-gray-500'
+              }`}
+            >
+              <User className="h-5 w-5" />
+              <span>Student</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setUserType('instructor')}
+              className={`flex items-center justify-center space-x-2 py-3 px-4 rounded-lg border-2 transition-all ${
+                userType === 'instructor'
+                  ? 'border-lms-green bg-lms-green/10 text-lms-green'
+                  : 'border-gray-600 text-gray-400 hover:border-gray-500'
+              }`}
+            >
+              <GraduationCap className="h-5 w-5" />
+              <span>Instructor</span>
+            </button>
           </div>
         </div>
 
@@ -154,18 +118,15 @@ const LoginPage = () => {
             <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
               Email Address
             </label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="lms-input pl-10"
-                placeholder="Enter your email"
-                required
-              />
-            </div>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="lms-input"
+              placeholder="Enter your email"
+              required
+            />
           </div>
 
           <div>
@@ -173,36 +134,51 @@ const LoginPage = () => {
               Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 id="password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="lms-input pl-10"
+                className="lms-input pr-10"
                 placeholder="Enter your password"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </div>
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className={`w-full lms-button-primary ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className="w-full lms-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? 'Signing In...' : 'Sign In'}
+            {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
-        {/* Footer Links */}
-        <div className="mt-8 text-center">
+        {/* Footer */}
+        <div className="mt-6 text-center">
           <p className="text-gray-400">
             Don't have an account?{' '}
-            <Link to="/register" className="text-lms-blue hover:text-blue-400">
+            <Link to="/register" className="text-lms-purple hover:text-purple-400 transition-colors">
               Sign up here
             </Link>
           </p>
+        </div>
+
+        <div className="mt-4 text-center">
+          <Link 
+            to="/" 
+            className="text-gray-400 hover:text-white transition-colors text-sm"
+          >
+            ← Back to Home
+          </Link>
         </div>
       </div>
     </div>

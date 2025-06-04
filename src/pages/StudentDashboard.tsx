@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, ArrowLeft, Play, CheckCircle, Award, User, BarChart3, Settings, X, Camera, Download, Edit } from 'lucide-react';
+import { BookOpen, ArrowLeft, Play, CheckCircle, Award, User, BarChart3, Settings, X, Camera, Download, Edit, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 
@@ -11,6 +11,7 @@ interface Course {
   progress: number;
   totalModules: number;
   completedModules: number;
+  currentModule: number;
   image: string;
   instructor: string;
   lastAccessed: string;
@@ -43,6 +44,7 @@ const StudentDashboard = () => {
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [showCertificateForm, setShowCertificateForm] = useState(false);
   const [selectedCertificateCourse, setSelectedCertificateCourse] = useState<Course | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [certificateForm, setCertificateForm] = useState<CertificateForm>({
     studentName: '',
     customMessage: ''
@@ -55,6 +57,104 @@ const StudentDashboard = () => {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const loadCoursesAndProgress = () => {
+    const userEmail = localStorage.getItem('userEmail');
+    
+    if (!userEmail) return;
+
+    console.log('Loading courses for student:', userEmail);
+
+    // Load assigned courses for this student
+    const courseAssignments = JSON.parse(localStorage.getItem('courseAssignments') || '[]');
+    console.log('All course assignments:', courseAssignments);
+    
+    const studentAssignments = courseAssignments.filter((assignment: any) => 
+      assignment.studentEmail === userEmail
+    );
+    console.log('Student assignments:', studentAssignments);
+
+    // Load all courses and filter for assigned ones
+    const allCourses = [
+      {
+        id: 1,
+        title: "Introduction to Programming",
+        description: "Learn the fundamentals of programming",
+        progress: 0,
+        totalModules: 5,
+        completedModules: 0,
+        currentModule: 1,
+        image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop",
+        instructor: "Dr. Smith",
+        lastAccessed: "Never"
+      },
+      {
+        id: 2,
+        title: "Web Development Basics",
+        description: "HTML, CSS, and JavaScript fundamentals",
+        progress: 0,
+        totalModules: 8,
+        completedModules: 0,
+        currentModule: 1,
+        image: "https://images.unsplash.com/photo-1547658719-da2b51169166?w=400&h=300&fit=crop",
+        instructor: "Prof. Johnson",
+        lastAccessed: "Never"
+      }
+    ];
+
+    // Filter courses based on assignments
+    const assignedCourses = allCourses.filter(course => 
+      studentAssignments.some((assignment: any) => assignment.courseId === course.id)
+    ).map(course => {
+      const assignment = studentAssignments.find((a: any) => a.courseId === course.id);
+      return {
+        ...course,
+        assignedBy: assignment?.instructorEmail
+      };
+    });
+
+    console.log('Assigned courses:', assignedCourses);
+
+    // Load student progress
+    const studentProgress = JSON.parse(localStorage.getItem(`studentProgress_${userEmail}`) || '{}');
+    console.log('Student progress:', studentProgress);
+    
+    const coursesWithProgress = assignedCourses.map(course => {
+      const progress = studentProgress[course.id] || { 
+        completedModules: 0, 
+        progress: 0, 
+        currentModule: 1,
+        lastAccessed: "Never" 
+      };
+      
+      return {
+        ...course,
+        completedModules: progress.completedModules || 0,
+        progress: progress.progress || 0,
+        currentModule: progress.currentModule || 1,
+        lastAccessed: progress.lastAccessed || "Never"
+      };
+    });
+
+    console.log('Final courses with progress:', coursesWithProgress);
+    setEnrolledCourses(coursesWithProgress);
+  };
+
+  const handleRefreshCourses = async () => {
+    setIsRefreshing(true);
+    console.log('Refreshing courses...');
+    
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    loadCoursesAndProgress();
+    
+    setIsRefreshing(false);
+    toast({
+      title: "Courses Refreshed",
+      description: "Your course list has been updated.",
+    });
+  };
 
   useEffect(() => {
     // Check if user is logged in as student
@@ -77,62 +177,7 @@ const StudentDashboard = () => {
       }));
     }
 
-    // Load assigned courses for this student
-    const courseAssignments = JSON.parse(localStorage.getItem('courseAssignments') || '[]');
-    const studentAssignments = courseAssignments.filter((assignment: any) => 
-      assignment.studentEmail === userEmail
-    );
-
-    // Load all courses and filter for assigned ones
-    const allCourses = [
-      {
-        id: 1,
-        title: "Introduction to Programming",
-        description: "Learn the fundamentals of programming",
-        progress: 0,
-        totalModules: 5,
-        completedModules: 0,
-        image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop",
-        instructor: "Dr. Smith",
-        lastAccessed: "Never"
-      },
-      {
-        id: 2,
-        title: "Web Development Basics",
-        description: "HTML, CSS, and JavaScript fundamentals",
-        progress: 0,
-        totalModules: 8,
-        completedModules: 0,
-        image: "https://images.unsplash.com/photo-1547658719-da2b51169166?w=400&h=300&fit=crop",
-        instructor: "Prof. Johnson",
-        lastAccessed: "Never"
-      }
-    ];
-
-    // Filter courses based on assignments
-    const assignedCourses = allCourses.filter(course => 
-      studentAssignments.some((assignment: any) => assignment.courseId === course.id)
-    ).map(course => {
-      const assignment = studentAssignments.find((a: any) => a.courseId === course.id);
-      return {
-        ...course,
-        assignedBy: assignment?.instructorEmail
-      };
-    });
-
-    // Load student progress
-    const studentProgress = JSON.parse(localStorage.getItem(`studentProgress_${userEmail}`) || '{}');
-    const coursesWithProgress = assignedCourses.map(course => {
-      const progress = studentProgress[course.id] || { completedModules: 0, progress: 0 };
-      return {
-        ...course,
-        completedModules: progress.completedModules,
-        progress: progress.progress,
-        lastAccessed: progress.lastAccessed || "Never"
-      };
-    });
-
-    setEnrolledCourses(coursesWithProgress);
+    loadCoursesAndProgress();
 
     // Load certificates
     const savedCertificates = JSON.parse(localStorage.getItem(`studentCertificates_${userEmail}`) || '[]');
@@ -191,7 +236,67 @@ const StudentDashboard = () => {
   };
 
   const handleContinueCourse = (courseId: number) => {
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) return;
+
+    // Update last accessed time
+    const studentProgress = JSON.parse(localStorage.getItem(`studentProgress_${userEmail}`) || '{}');
+    if (!studentProgress[courseId]) {
+      studentProgress[courseId] = { 
+        completedModules: 0, 
+        progress: 0, 
+        currentModule: 1 
+      };
+    }
+    studentProgress[courseId].lastAccessed = new Date().toLocaleDateString();
+    localStorage.setItem(`studentProgress_${userEmail}`, JSON.stringify(studentProgress));
+
+    // Navigate to course
     navigate(`/course/${courseId}`);
+  };
+
+  const handleCompleteModule = (courseId: number) => {
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) return;
+
+    const course = enrolledCourses.find(c => c.id === courseId);
+    if (!course) return;
+
+    const studentProgress = JSON.parse(localStorage.getItem(`studentProgress_${userEmail}`) || '{}');
+    if (!studentProgress[courseId]) {
+      studentProgress[courseId] = { 
+        completedModules: 0, 
+        progress: 0, 
+        currentModule: 1 
+      };
+    }
+
+    const currentProgress = studentProgress[courseId];
+    
+    // Complete current module and unlock next one
+    if (currentProgress.completedModules < course.totalModules) {
+      currentProgress.completedModules += 1;
+      currentProgress.currentModule = Math.min(currentProgress.completedModules + 1, course.totalModules);
+      currentProgress.progress = Math.round((currentProgress.completedModules / course.totalModules) * 100);
+      currentProgress.lastAccessed = new Date().toLocaleDateString();
+      
+      localStorage.setItem(`studentProgress_${userEmail}`, JSON.stringify(studentProgress));
+      
+      // Reload courses to reflect changes
+      loadCoursesAndProgress();
+      
+      if (currentProgress.progress === 100) {
+        toast({
+          title: "Course Completed!",
+          description: `Congratulations! You've completed ${course.title}. Certificate now available!`,
+        });
+      } else {
+        toast({
+          title: "Module Completed!",
+          description: `Module ${currentProgress.completedModules} completed. Next module unlocked!`,
+        });
+      }
+    }
   };
 
   const handleClaimCertificate = (course: Course) => {
@@ -388,6 +493,14 @@ const StudentDashboard = () => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              <button
+                onClick={handleRefreshCourses}
+                disabled={isRefreshing}
+                className={`text-gray-400 hover:text-white transition-colors ${isRefreshing ? 'animate-spin' : ''}`}
+                title="Refresh Courses"
+              >
+                <RefreshCw className="h-5 w-5" />
+              </button>
               <div className="flex items-center space-x-3">
                 <img
                   src={studentProfile.profilePicture}
@@ -571,13 +684,23 @@ const StudentDashboard = () => {
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
-            <div>
-              <h1 className="text-3xl font-poppins font-bold text-white mb-2">
-                Welcome back, {studentProfile.name}!
-              </h1>
-              <p className="text-gray-400">
-                Continue your learning journey
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-poppins font-bold text-white mb-2">
+                  Welcome back, {studentProfile.name}!
+                </h1>
+                <p className="text-gray-400">
+                  Continue your learning journey
+                </p>
+              </div>
+              <button
+                onClick={handleRefreshCourses}
+                disabled={isRefreshing}
+                className="lms-button bg-lms-blue/20 text-lms-blue hover:bg-lms-blue/30 flex items-center space-x-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span>{isRefreshing ? 'Refreshing...' : 'Refresh Courses'}</span>
+              </button>
             </div>
 
             {/* Stats Grid */}
@@ -605,6 +728,14 @@ const StudentDashboard = () => {
                 <p className="text-gray-400 mb-4">
                   You don't have any courses assigned yet. Please contact your instructor to get started.
                 </p>
+                <button
+                  onClick={handleRefreshCourses}
+                  disabled={isRefreshing}
+                  className="lms-button-primary flex items-center space-x-2 mx-auto"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span>Check for New Courses</span>
+                </button>
               </div>
             )}
 
@@ -670,16 +801,31 @@ const StudentDashboard = () => {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-poppins font-bold text-white">My Assigned Courses</h2>
-              <p className="text-gray-400">Courses assigned by instructors</p>
+              <button
+                onClick={handleRefreshCourses}
+                disabled={isRefreshing}
+                className="lms-button bg-lms-blue/20 text-lms-blue hover:bg-lms-blue/30 flex items-center space-x-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+              </button>
             </div>
 
             {enrolledCourses.length === 0 ? (
               <div className="lms-card text-center py-12">
                 <BookOpen className="h-16 w-16 text-gray-500 mx-auto mb-4" />
                 <h3 className="text-xl font-poppins font-bold text-white mb-2">No Courses Assigned</h3>
-                <p className="text-gray-400">
-                  You don't have any courses assigned yet. Please contact your instructor to get started.
+                <p className="text-gray-400 mb-4">
+                  You don't have any courses assigned yet. Contact your instructor or refresh to check for new assignments.
                 </p>
+                <button
+                  onClick={handleRefreshCourses}
+                  disabled={isRefreshing}
+                  className="lms-button-primary flex items-center space-x-2 mx-auto"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span>Check for New Courses</span>
+                </button>
               </div>
             ) : (
               /* Courses Grid */
@@ -711,9 +857,12 @@ const StudentDashboard = () => {
                           style={{width: `${course.progress}%`}}
                         ></div>
                       </div>
+                      <p className="text-gray-500 text-xs mt-2">
+                        Current Module: {course.currentModule}/{course.totalModules}
+                      </p>
                     </div>
                     
-                    <div className="flex space-x-2">
+                    <div className="flex space-x-2 mb-3">
                       <button 
                         onClick={() => handleContinueCourse(course.id)}
                         className="lms-button-primary flex-1 flex items-center justify-center space-x-1"
@@ -721,10 +870,19 @@ const StudentDashboard = () => {
                         <Play className="h-4 w-4" />
                         <span>Continue</span>
                       </button>
+                      {course.currentModule <= course.totalModules && course.progress < 100 && (
+                        <button 
+                          onClick={() => handleCompleteModule(course.id)}
+                          className="lms-button bg-lms-green/20 text-lms-green hover:bg-lms-green/30 flex items-center space-x-1"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                          <span>Complete Module</span>
+                        </button>
+                      )}
                       {course.progress === 100 && (
                         <button 
                           onClick={() => handleClaimCertificate(course)}
-                          className="lms-button bg-lms-green/20 text-lms-green hover:bg-lms-green/30 flex items-center space-x-1"
+                          className="lms-button bg-lms-purple/20 text-lms-purple hover:bg-lms-purple/30 flex items-center space-x-1"
                         >
                           <Award className="h-4 w-4" />
                           <span>Certificate</span>
