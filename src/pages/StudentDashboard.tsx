@@ -64,9 +64,14 @@ const StudentDashboard = () => {
       const courseAssignments = JSON.parse(localStorage.getItem('courseAssignments') || '[]');
       console.log('All course assignments:', courseAssignments);
       
-      // Get the current student's user ID from the users list
+      // Get the current student's user ID from both users and registeredUsers
       const allUsers = JSON.parse(localStorage.getItem('users') || '[]');
-      const currentStudent = allUsers.find((user: any) => user.email === userEmail && user.role === 'student');
+      const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+      const combinedUsers = [...allUsers, ...registeredUsers];
+      
+      const currentStudent = combinedUsers.find((user: any) => 
+        user.email === userEmail && user.role === 'student'
+      );
       const currentStudentId = currentStudent?.id;
       
       console.log('Current student email:', userEmail);
@@ -75,8 +80,14 @@ const StudentDashboard = () => {
 
       // Filter assignments for this student using both email and ID matching
       const studentAssignments = courseAssignments.filter((assignment: any) => {
-        return assignment.studentEmail === userEmail || 
-               (currentStudentId && assignment.studentId === currentStudentId);
+        const emailMatch = assignment.studentEmail === userEmail;
+        const idMatch = currentStudentId && (
+          assignment.studentId === currentStudentId ||
+          assignment.studentId === parseInt(currentStudentId) ||
+          assignment.studentId === currentStudentId.toString()
+        );
+        console.log(`Assignment check: courseId=${assignment.courseId}, studentId=${assignment.studentId}, studentEmail=${assignment.studentEmail}, emailMatch=${emailMatch}, idMatch=${idMatch}`);
+        return emailMatch || idMatch;
       });
       console.log('Student assignments found:', studentAssignments);
 
@@ -391,7 +402,7 @@ const StudentDashboard = () => {
             ) : (
               <div className="course-grid">
                 {myCourses.map((course) => (
-                  <div key={course.id} className="lms-card group hover:shadow-2xl transition-all duration-300">
+                  <div key={`${course.id}-${course.assignedBy || 'enrolled'}`} className="lms-card group hover:shadow-2xl transition-all duration-300">
                     <div className="relative overflow-hidden rounded-lg mb-4">
                       <img
                         src={course.image}
