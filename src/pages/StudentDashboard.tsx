@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BookOpen, ArrowLeft, Plus, Upload, User, Mail, Calendar, Award, RefreshCw, Download, Edit2, Check } from 'lucide-react';
@@ -65,10 +64,21 @@ const StudentDashboard = () => {
       const courseAssignments = JSON.parse(localStorage.getItem('courseAssignments') || '[]');
       console.log('All course assignments:', courseAssignments);
       
-      const studentAssignments = courseAssignments.filter((assignment: any) => 
-        assignment.studentEmail === userEmail
-      );
-      console.log('Student assignments:', studentAssignments);
+      // Get the current student's user ID from the users list
+      const allUsers = JSON.parse(localStorage.getItem('users') || '[]');
+      const currentStudent = allUsers.find((user: any) => user.email === userEmail && user.role === 'student');
+      const currentStudentId = currentStudent?.id;
+      
+      console.log('Current student email:', userEmail);
+      console.log('Current student ID:', currentStudentId);
+      console.log('Current student object:', currentStudent);
+
+      // Filter assignments for this student using both email and ID matching
+      const studentAssignments = courseAssignments.filter((assignment: any) => {
+        return assignment.studentEmail === userEmail || 
+               (currentStudentId && assignment.studentId === currentStudentId);
+      });
+      console.log('Student assignments found:', studentAssignments);
 
       // Convert assignments to course objects with assignment info
       const assignedCoursesData = studentAssignments.map((assignment: any) => {
@@ -77,7 +87,7 @@ const StudentDashboard = () => {
           return {
             ...adminCourse,
             assignedBy: assignment.instructorEmail,
-            assignedAt: assignment.assignedAt
+            assignedAt: assignment.assignedDate
           };
         }
         return null;
