@@ -1,14 +1,14 @@
 
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { BookOpen, Eye, EyeOff, User, GraduationCap } from 'lucide-react';
+import { BookOpen, Eye, EyeOff, User, GraduationCap, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [userType, setUserType] = useState<'student' | 'instructor'>('student');
+  const [userType, setUserType] = useState<'student' | 'instructor' | 'admin'>('student');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -18,6 +18,46 @@ const LoginPage = () => {
     setIsLoading(true);
 
     try {
+      // Admin login check
+      if (userType === 'admin') {
+        if (email === 'admin@learnershub.com' && password === 'admin123') {
+          localStorage.setItem('isLoggedIn', 'true');
+          localStorage.setItem('userRole', 'admin');
+          localStorage.setItem('userEmail', email);
+          
+          // Track admin login
+          const loginHistory = JSON.parse(localStorage.getItem('loginHistory') || '[]');
+          loginHistory.unshift({
+            id: Date.now(),
+            email: email,
+            role: 'admin',
+            loginTime: new Date().toISOString(),
+            name: 'System Administrator'
+          });
+          localStorage.setItem('loginHistory', JSON.stringify(loginHistory.slice(0, 50))); // Keep last 50 logins
+          
+          toast({
+            title: "Admin Login Successful",
+            description: "Welcome to the admin panel.",
+          });
+
+          setTimeout(() => {
+            navigate('/admin');
+          }, 1000);
+          
+          setIsLoading(false);
+          return;
+        } else {
+          toast({
+            title: "Admin Login Failed",
+            description: "Invalid admin credentials.",
+            variant: "destructive"
+          });
+          setIsLoading(false);
+          return;
+        }
+      }
+
       // Get registered users
       const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
       
@@ -43,6 +83,17 @@ const LoginPage = () => {
       localStorage.setItem('isLoggedIn', 'true');
       localStorage.setItem('userRole', userType);
       localStorage.setItem('userEmail', email);
+      
+      // Track login history
+      const loginHistory = JSON.parse(localStorage.getItem('loginHistory') || '[]');
+      loginHistory.unshift({
+        id: Date.now(),
+        email: email,
+        role: userType,
+        loginTime: new Date().toISOString(),
+        name: user.name
+      });
+      localStorage.setItem('loginHistory', JSON.stringify(loginHistory.slice(0, 50))); // Keep last 50 logins
       
       toast({
         title: "Login Successful",
@@ -84,30 +135,42 @@ const LoginPage = () => {
 
         {/* User Type Selection */}
         <div className="mb-6">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
               onClick={() => setUserType('student')}
-              className={`flex items-center justify-center space-x-2 py-3 px-4 rounded-lg border-2 transition-all ${
+              className={`flex items-center justify-center space-x-1 py-3 px-2 rounded-lg border-2 transition-all text-sm ${
                 userType === 'student'
                   ? 'border-lms-blue bg-lms-blue/10 text-lms-blue'
                   : 'border-gray-600 text-gray-400 hover:border-gray-500'
               }`}
             >
-              <User className="h-5 w-5" />
+              <User className="h-4 w-4" />
               <span>Student</span>
             </button>
             <button
               type="button"
               onClick={() => setUserType('instructor')}
-              className={`flex items-center justify-center space-x-2 py-3 px-4 rounded-lg border-2 transition-all ${
+              className={`flex items-center justify-center space-x-1 py-3 px-2 rounded-lg border-2 transition-all text-sm ${
                 userType === 'instructor'
                   ? 'border-lms-green bg-lms-green/10 text-lms-green'
                   : 'border-gray-600 text-gray-400 hover:border-gray-500'
               }`}
             >
-              <GraduationCap className="h-5 w-5" />
+              <GraduationCap className="h-4 w-4" />
               <span>Instructor</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setUserType('admin')}
+              className={`flex items-center justify-center space-x-1 py-3 px-2 rounded-lg border-2 transition-all text-sm ${
+                userType === 'admin'
+                  ? 'border-lms-purple bg-lms-purple/10 text-lms-purple'
+                  : 'border-gray-600 text-gray-400 hover:border-gray-500'
+              }`}
+            >
+              <Shield className="h-4 w-4" />
+              <span>Admin</span>
             </button>
           </div>
         </div>
@@ -124,7 +187,7 @@ const LoginPage = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="lms-input"
-              placeholder="Enter your email"
+              placeholder={userType === 'admin' ? 'admin@learnershub.com' : 'Enter your email'}
               required
             />
           </div>
@@ -140,7 +203,7 @@ const LoginPage = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="lms-input pr-10"
-                placeholder="Enter your password"
+                placeholder={userType === 'admin' ? 'admin123' : 'Enter your password'}
                 required
               />
               <button
@@ -152,6 +215,16 @@ const LoginPage = () => {
               </button>
             </div>
           </div>
+
+          {userType === 'admin' && (
+            <div className="bg-lms-purple/10 border border-lms-purple/30 rounded-lg p-3">
+              <p className="text-sm text-lms-purple">
+                <strong>Admin Credentials:</strong><br />
+                Email: admin@learnershub.com<br />
+                Password: admin123
+              </p>
+            </div>
+          )}
 
           <button
             type="submit"

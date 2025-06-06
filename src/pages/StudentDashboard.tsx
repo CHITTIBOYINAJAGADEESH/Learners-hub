@@ -79,7 +79,7 @@ const StudentDashboard = () => {
       {
         id: 1,
         title: "Introduction to Programming",
-        description: "Learn the fundamentals of programming",
+        description: "Learn the fundamentals of programming with hands-on exercises",
         progress: 0,
         totalModules: 5,
         completedModules: 0,
@@ -91,7 +91,7 @@ const StudentDashboard = () => {
       {
         id: 2,
         title: "Web Development Basics",
-        description: "HTML, CSS, and JavaScript fundamentals",
+        description: "HTML, CSS, and JavaScript fundamentals for beginners",
         progress: 0,
         totalModules: 8,
         completedModules: 0,
@@ -99,17 +99,54 @@ const StudentDashboard = () => {
         image: "https://images.unsplash.com/photo-1547658719-da2b51169166?w=400&h=300&fit=crop",
         instructor: "Prof. Johnson",
         lastAccessed: "Never"
+      },
+      {
+        id: 3,
+        title: "Data Structures and Algorithms",
+        description: "Essential computer science concepts and problem-solving techniques",
+        progress: 0,
+        totalModules: 10,
+        completedModules: 0,
+        currentModule: 1,
+        image: "https://images.unsplash.com/photo-1518432031352-d6fc5c10da5a?w=400&h=300&fit=crop",
+        instructor: "Dr. Williams",
+        lastAccessed: "Never"
+      },
+      {
+        id: 4,
+        title: "Database Management",
+        description: "Learn SQL and database design principles",
+        progress: 0,
+        totalModules: 6,
+        completedModules: 0,
+        currentModule: 1,
+        image: "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=400&h=300&fit=crop",
+        instructor: "Prof. Davis",
+        lastAccessed: "Never"
+      },
+      {
+        id: 5,
+        title: "Machine Learning Fundamentals",
+        description: "Introduction to AI and machine learning concepts",
+        progress: 0,
+        totalModules: 12,
+        completedModules: 0,
+        currentModule: 1,
+        image: "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=400&h=300&fit=crop",
+        instructor: "Dr. Chen",
+        lastAccessed: "Never"
       }
     ];
 
-    // Filter courses based on assignments
+    // Filter courses based on assignments and add assignment info
     const assignedCourses = allCourses.filter(course => 
       studentAssignments.some((assignment: any) => assignment.courseId === course.id)
     ).map(course => {
       const assignment = studentAssignments.find((a: any) => a.courseId === course.id);
       return {
         ...course,
-        assignedBy: assignment?.instructorEmail
+        assignedBy: assignment?.instructorEmail,
+        assignedDate: assignment?.assignedDate
       };
     });
 
@@ -287,12 +324,12 @@ const StudentDashboard = () => {
       
       if (currentProgress.progress === 100) {
         toast({
-          title: "Course Completed!",
+          title: "🎉 Course Completed!",
           description: `Congratulations! You've completed ${course.title}. Certificate now available!`,
         });
       } else {
         toast({
-          title: "Module Completed!",
+          title: "✅ Module Completed!",
           description: `Module ${currentProgress.completedModules} completed. Next module unlocked!`,
         });
       }
@@ -341,123 +378,155 @@ const StudentDashboard = () => {
       format: 'a4'
     });
 
-    // Set up the certificate design
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     
-    // Background gradient effect (simulated with rectangles)
-    pdf.setFillColor(102, 126, 234, 0.1);
+    // Background gradient effect
+    pdf.setFillColor(240, 248, 255);
     pdf.rect(0, 0, pageWidth, pageHeight, 'F');
     
-    // Border
+    // Decorative border
     pdf.setLineWidth(3);
-    pdf.setDrawColor(212, 175, 55); // Gold color
+    pdf.setDrawColor(212, 175, 55);
     pdf.rect(10, 10, pageWidth - 20, pageHeight - 20);
     
-    // Inner border
+    // Inner decorative border
     pdf.setLineWidth(1);
-    pdf.setDrawColor(200, 200, 200);
+    pdf.setDrawColor(184, 134, 11);
     pdf.rect(15, 15, pageWidth - 30, pageHeight - 30);
     
-    // Header - Learners Hub
+    // Header with institution name
+    pdf.setFontSize(20);
+    pdf.setTextColor(59, 130, 246);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('🎓 LEARNERS HUB INSTITUTE', pageWidth / 2, 30, { align: 'center' });
+    
+    // Certificate title
+    pdf.setFontSize(42);
+    pdf.setTextColor(147, 51, 234);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('CERTIFICATE OF COMPLETION', pageWidth / 2, 55, { align: 'center' });
+    
+    // Decorative line
+    pdf.setLineWidth(2);
+    pdf.setDrawColor(212, 175, 55);
+    pdf.line(pageWidth / 2 - 60, 62, pageWidth / 2 + 60, 62);
+    
+    // Presentation text
     pdf.setFontSize(16);
-    pdf.setTextColor(102, 126, 234);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('🎓 Learners Hub', pageWidth / 2, 30, { align: 'center' });
-    
-    // Certificate Title
-    pdf.setFontSize(36);
-    pdf.setTextColor(102, 126, 234);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Certificate of Completion', pageWidth / 2, 55, { align: 'center' });
-    
-    // Subtitle
-    pdf.setFontSize(18);
-    pdf.setTextColor(60, 60, 60);
+    pdf.setTextColor(75, 85, 99);
     pdf.setFont('helvetica', 'normal');
-    pdf.text('This is to certify that', pageWidth / 2, 75, { align: 'center' });
+    pdf.text('This is to certify that', pageWidth / 2, 80, { align: 'center' });
     
-    // Student Name
-    pdf.setFontSize(28);
-    pdf.setTextColor(118, 75, 162); // Purple color
+    // Student name with decorative styling
+    pdf.setFontSize(32);
+    pdf.setTextColor(220, 38, 38);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(certificate.studentName || studentProfile.name, pageWidth / 2, 95, { align: 'center' });
+    pdf.text(certificate.studentName || studentProfile.name, pageWidth / 2, 100, { align: 'center' });
     
     // Course completion text
-    pdf.setFontSize(18);
-    pdf.setTextColor(60, 60, 60);
+    pdf.setFontSize(16);
+    pdf.setTextColor(75, 85, 99);
     pdf.setFont('helvetica', 'normal');
-    pdf.text('has successfully completed the course', pageWidth / 2, 115, { align: 'center' });
+    pdf.text('has successfully completed the comprehensive course', pageWidth / 2, 120, { align: 'center' });
     
-    // Course Name
-    pdf.setFontSize(24);
-    pdf.setTextColor(60, 60, 60);
+    // Course name
+    pdf.setFontSize(26);
+    pdf.setTextColor(59, 130, 246);
     pdf.setFont('helvetica', 'bold');
-    const courseTitle = certificate.courseName;
-    pdf.text(courseTitle, pageWidth / 2, 135, { align: 'center' });
+    pdf.text(certificate.courseName, pageWidth / 2, 140, { align: 'center' });
     
-    // Custom Message (if exists)
+    // Course duration and completion details
+    const randomDuration = Math.floor(Math.random() * 6) + 2; // 2-8 months
+    pdf.setFontSize(14);
+    pdf.setTextColor(107, 114, 128);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Course Duration: ${randomDuration} months | Grade: ${certificate.grade}`, pageWidth / 2, 155, { align: 'center' });
+    
+    // Custom message
     if (certificate.customMessage) {
       pdf.setFontSize(12);
-      pdf.setTextColor(80, 80, 80);
+      pdf.setTextColor(100, 116, 139);
       pdf.setFont('helvetica', 'italic');
       const lines = pdf.splitTextToSize(certificate.customMessage, pageWidth - 60);
-      const messageY = 155;
-      pdf.text(lines, pageWidth / 2, messageY, { align: 'center' });
+      pdf.text(lines, pageWidth / 2, 170, { align: 'center' });
     }
     
-    // Completion Details
-    pdf.setFontSize(14);
-    pdf.setTextColor(100, 100, 100);
-    pdf.setFont('helvetica', 'normal');
+    // Date and verification
     const completionDate = new Date(certificate.completionDate).toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'long', 
       day: 'numeric' 
     });
-    pdf.text(`Completion Date: ${completionDate}`, pageWidth / 2, 175, { align: 'center' });
-    pdf.text(`Grade: ${certificate.grade}`, pageWidth / 2, 185, { align: 'center' });
-    
-    // Signature lines
-    const signatureY = pageHeight - 40;
-    const signature1X = pageWidth / 4;
-    const signature2X = (pageWidth / 4) * 2;
-    const signature3X = (pageWidth / 4) * 3;
-    
-    // Draw signature lines
-    pdf.setLineWidth(0.5);
-    pdf.setDrawColor(60, 60, 60);
-    pdf.line(signature1X - 30, signatureY, signature1X + 30, signatureY);
-    pdf.line(signature2X - 30, signatureY, signature2X + 30, signatureY);
-    pdf.line(signature3X - 30, signatureY, signature3X + 30, signatureY);
-    
-    // Signature labels
-    pdf.setFontSize(10);
-    pdf.setTextColor(60, 60, 60);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Course Instructor', signature1X, signatureY + 8, { align: 'center' });
-    pdf.text('Academic Director', signature2X, signatureY + 8, { align: 'center' });
-    pdf.text('Dean of Studies', signature3X, signatureY + 8, { align: 'center' });
-    
-    // Add a verification stamp effect
     pdf.setFontSize(12);
-    pdf.setTextColor(220, 38, 38);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('CERTIFIED', pageWidth - 40, 40, { align: 'center', angle: -15 });
-    pdf.text('COMPLETED', pageWidth - 40, 50, { align: 'center', angle: -15 });
+    pdf.setTextColor(107, 114, 128);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Date of Completion: ${completionDate}`, pageWidth / 2, 190, { align: 'center' });
     
-    // Draw stamp circle
-    pdf.setDrawColor(220, 38, 38);
-    pdf.setLineWidth(2);
-    pdf.circle(pageWidth - 40, 45, 15, 'S');
+    // Certificate ID
+    const certId = `LH-${Date.now().toString().slice(-6)}`;
+    pdf.text(`Certificate ID: ${certId}`, pageWidth / 2, 200, { align: 'center' });
+    
+    // Signature section
+    const signatureY = pageHeight - 45;
+    
+    // Signature lines and labels
+    const signatures = [
+      { label: 'Course Instructor', x: pageWidth / 4 },
+      { label: 'Academic Director', x: pageWidth / 2 },
+      { label: 'Principal', x: (pageWidth / 4) * 3 }
+    ];
+    
+    signatures.forEach(sig => {
+      // Signature line
+      pdf.setLineWidth(0.5);
+      pdf.setDrawColor(107, 114, 128);
+      pdf.line(sig.x - 25, signatureY, sig.x + 25, signatureY);
+      
+      // Label
+      pdf.setFontSize(10);
+      pdf.setTextColor(75, 85, 99);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(sig.label, sig.x, signatureY + 8, { align: 'center' });
+    });
+    
+    // AICTE-like accreditation stamps
+    const stamps = [
+      { text: 'AICTE\nAPPROVED', x: 40, y: 60, color: [34, 197, 94] },
+      { text: 'UGC\nRECOGNIZED', x: pageWidth - 40, y: 60, color: [168, 85, 247] },
+      { text: 'ISO 9001:2015\nCERTIFIED', x: 40, y: pageHeight - 60, color: [239, 68, 68] },
+      { text: 'NAAC\nACCREDITED', x: pageWidth - 40, y: pageHeight - 60, color: [59, 130, 246] }
+    ];
+    
+    stamps.forEach(stamp => {
+      // Stamp circle
+      pdf.setDrawColor(stamp.color[0], stamp.color[1], stamp.color[2]);
+      pdf.setLineWidth(2);
+      pdf.circle(stamp.x, stamp.y, 18, 'S');
+      
+      // Stamp text
+      pdf.setFontSize(8);
+      pdf.setTextColor(stamp.color[0], stamp.color[1], stamp.color[2]);
+      pdf.setFont('helvetica', 'bold');
+      const stampLines = stamp.text.split('\n');
+      stampLines.forEach((line, index) => {
+        pdf.text(line, stamp.x, stamp.y - 3 + (index * 6), { align: 'center' });
+      });
+    });
+    
+    // Verification QR code placeholder
+    pdf.setFontSize(8);
+    pdf.setTextColor(107, 114, 128);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('Verify at: www.learnershub.com/verify', pageWidth / 2, pageHeight - 15, { align: 'center' });
     
     // Download the PDF
     const fileName = `Certificate-${certificate.courseName.replace(/\s+/g, '-')}-${certificate.studentName?.replace(/\s+/g, '-') || 'Student'}.pdf`;
     pdf.save(fileName);
 
     toast({
-      title: "Certificate Downloaded",
-      description: "Your PDF certificate has been downloaded successfully.",
+      title: "📄 Certificate Downloaded",
+      description: "Your professional certificate has been downloaded successfully.",
     });
   };
 
