@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BookOpen, ArrowLeft, Plus, Users, BarChart3, Settings, Trash2, Edit, Eye, Save, X, Camera, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import UserManagement from '@/components/admin/UserManagement';
 
 interface Course {
   id: number;
@@ -40,7 +41,7 @@ const AdminDashboard = () => {
   const [viewingCourse, setViewingCourse] = useState<Course | null>(null);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [adminProfile, setAdminProfile] = useState<AdminProfile>({
-    name: 'Admin User',
+    name: 'System Administrator',
     email: localStorage.getItem('userEmail') || 'admin@learnershub.com',
     profilePicture: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
   });
@@ -57,8 +58,30 @@ const AdminDashboard = () => {
 
   // Load user activities from localStorage
   const loadUserActivities = () => {
-    const adminUserData = JSON.parse(localStorage.getItem('adminUserData') || '[]');
-    setUserActivities(adminUserData);
+    const loginHistory = JSON.parse(localStorage.getItem('loginHistory') || '[]');
+    const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+    
+    // Combine login history and registrations
+    const activities: UserActivity[] = [
+      ...loginHistory.map((login: any) => ({
+        id: `login_${login.id}`,
+        email: login.email,
+        name: login.name,
+        role: login.role,
+        loginTime: login.loginTime,
+        type: 'login' as const
+      })),
+      ...registeredUsers.map((user: any) => ({
+        id: `reg_${user.id}`,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        registrationTime: user.createdAt,
+        type: 'registration' as const
+      }))
+    ];
+    
+    setUserActivities(activities);
   };
 
   useEffect(() => {
@@ -718,74 +741,9 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* Users Tab */}
+        {/* Users Tab - Now uses the UserManagement component */}
         {activeTab === 'users' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-poppins font-bold text-white">User Management</h2>
-              <button 
-                onClick={loadUserActivities}
-                className="lms-button-primary flex items-center space-x-2"
-              >
-                <Users className="h-5 w-5" />
-                <span>Refresh</span>
-              </button>
-            </div>
-            
-            <div className="lms-card">
-              <h3 className="text-lg font-poppins font-semibold text-white mb-4">
-                User Activity ({userActivities.length} total records)
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-gray-700">
-                      <th className="pb-3 text-gray-400">Email</th>
-                      <th className="pb-3 text-gray-400">Name</th>
-                      <th className="pb-3 text-gray-400">Role</th>
-                      <th className="pb-3 text-gray-400">Activity</th>
-                      <th className="pb-3 text-gray-400">Time</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-gray-300">
-                    {userActivities.length > 0 ? (
-                      userActivities.slice().reverse().map((activity) => (
-                        <tr key={activity.id} className="border-b border-gray-800">
-                          <td className="py-3 text-wrap-break">{activity.email}</td>
-                          <td className="py-3 text-wrap-break">{activity.name || '-'}</td>
-                          <td className="py-3">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              activity.role === 'admin' ? 'bg-lms-blue/20 text-lms-blue' :
-                              activity.role === 'instructor' ? 'bg-lms-green/20 text-lms-green' :
-                              'bg-lms-purple/20 text-lms-purple'
-                            }`}>
-                              {activity.role}
-                            </span>
-                          </td>
-                          <td className="py-3">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              activity.type === 'registration' ? 'bg-lms-green/20 text-lms-green' : 'bg-lms-blue/20 text-lms-blue'
-                            }`}>
-                              {activity.type}
-                            </span>
-                          </td>
-                          <td className="py-3">
-                            {formatDateTime(activity.loginTime || activity.registrationTime || '')}
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={5} className="py-8 text-center text-gray-500">
-                          No user activity recorded yet
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+          <UserManagement />
         )}
 
         {/* Analytics Tab */}
