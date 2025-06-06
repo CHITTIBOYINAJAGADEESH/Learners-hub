@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { BookOpen, ArrowLeft, Play, CheckCircle, Lock, Award, Download } from 'lucide-react';
+import { BookOpen, ArrowLeft, Play, CheckCircle, Lock, Award, Download, Edit2, Check, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 
@@ -29,6 +29,14 @@ interface StudentProgress {
   completionDate?: string;
 }
 
+interface CertificateDetails {
+  studentName: string;
+  courseName: string;
+  duration: string;
+  completionDate: string;
+  grade: string;
+}
+
 const CoursePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -41,6 +49,21 @@ const CoursePage = () => {
   const [quizScore, setQuizScore] = useState(0);
   const [studentProgress, setStudentProgress] = useState<StudentProgress | null>(null);
   const [course, setCourse] = useState<any>(null);
+  const [showCertificateModal, setShowCertificateModal] = useState(false);
+  const [certificateDetails, setCertificateDetails] = useState<CertificateDetails>({
+    studentName: '',
+    courseName: '',
+    duration: '',
+    completionDate: '',
+    grade: 'Excellent'
+  });
+  const [isEditingCertificate, setIsEditingCertificate] = useState(false);
+
+  // Generate random duration in months
+  const generateRandomDuration = () => {
+    const months = Math.floor(Math.random() * 12) + 1; // 1-12 months
+    return months === 1 ? '1 month' : `${months} months`;
+  };
 
   // Initialize course and student progress
   useEffect(() => {
@@ -58,8 +81,7 @@ const CoursePage = () => {
 
     // For students, check if course is assigned to them
     if (userRole === 'student') {
-      const courseAssignments = JSON.parse(localStorage.getItem('courseAssignments') || '[]');
-      const studentEmail = localStorage.getItem('userEmail');
+      const userEmail = localStorage.getItem('userEmail');
       
       // Mock student data - in real app, you'd get this from backend
       const students = [
@@ -69,25 +91,11 @@ const CoursePage = () => {
         { id: 4, email: 'student@learnershub.com' }
       ];
       
-      const currentStudent = students.find(s => s.email === studentEmail);
+      const currentStudent = students.find(s => s.email === userEmail);
       if (!currentStudent) {
         toast({
           title: "Access Denied",
           description: "Student account not found.",
-          variant: "destructive",
-        });
-        navigate('/student');
-        return;
-      }
-
-      const isAssigned = courseAssignments.some((assignment: any) => 
-        assignment.courseId === courseId && assignment.studentId === currentStudent.id
-      );
-
-      if (!isAssigned) {
-        toast({
-          title: "Access Denied",
-          description: "This course is not assigned to you.",
           variant: "destructive",
         });
         navigate('/student');
@@ -114,9 +122,13 @@ const CoursePage = () => {
       setStudentProgress(progress);
     }
 
-    // Load course data from admin courses
+    // Load course data from admin courses or enrolled courses
     const adminCourses = JSON.parse(localStorage.getItem('adminCourses') || '[]');
-    courseData = adminCourses.find((c: any) => c.id === courseId);
+    const userEmail = localStorage.getItem('userEmail');
+    const enrolledCourses = JSON.parse(localStorage.getItem(`enrolledCourses_${userEmail}`) || '[]');
+    
+    courseData = adminCourses.find((c: any) => c.id === courseId) || 
+                 enrolledCourses.find((c: any) => c.id === courseId);
 
     if (!courseData) {
       // Fallback to mock data
@@ -265,6 +277,20 @@ const CoursePage = () => {
     }
 
     setCourse(courseData);
+
+    // Initialize certificate details
+    const userName = localStorage.getItem('userName') || 'Student';
+    setCertificateDetails({
+      studentName: userName,
+      courseName: courseData.title,
+      duration: generateRandomDuration(),
+      completionDate: new Date().toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      }),
+      grade: 'Excellent'
+    });
   }, [id, navigate]);
 
   const handleBack = () => {
@@ -298,6 +324,48 @@ const CoursePage = () => {
     setQuizCompleted(false);
     setCurrentQuestionIndex(0);
     setSelectedAnswers([]);
+  };
+
+  const handleCompleteModule = () => {
+    if (!selectedModule || !studentProgress || !course) return;
+
+    // Mark current module as completed
+    updateStudentProgress(selectedModule.id);
+    updateModuleLockStatus(selectedModule.id);
+
+    // Find next module
+    const currentIndex = course.modules.findIndex((m: Module) => m.id === selectedModule.id);
+    const nextModule = course.modules[currentIndex + 1];
+
+    // Check if all modules are completed
+    const updatedCompletedModules = [...studentProgress.completedModules];
+    if (!updatedCompletedModules.includes(selectedModule.id)) {
+      updatedCompletedModules.push(selectedModule.id);
+    }
+
+    if (updatedCompletedModules.length === course.modules.length) {
+      // All modules completed - show certificate modal
+      setShowCertificateModal(true);
+      toast({
+        title: "🎉 Congratulations!",
+        description: "You've completed all modules! Your certificate is ready.",
+      });
+    } else if (nextModule && !nextModule.isCompleted) {
+      // Auto-select next module
+      setSelectedModule({
+        ...nextModule,
+        isLocked: false
+      });
+      toast({
+        title: "Module Completed!",
+        description: `Great job! Moving to next module: ${nextModule.title}`,
+      });
+    } else {
+      toast({
+        title: "Module Completed!",
+        description: "Well done! Select another module to continue.",
+      });
+    }
   };
 
   const handleStartQuiz = () => {
@@ -420,130 +488,188 @@ const CoursePage = () => {
     setSelectedAnswers(new Array(selectedModule!.mcqs.length).fill(-1));
   };
 
-  const handleDownloadCertificate = () => {
-    if (!studentProgress?.isCompleted || !course) {
-      toast({
-        title: "Certificate Not Available",
-        description: "Complete all modules to download your certificate.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const studentName = localStorage.getItem('userName') || 'Student';
-    const completionDate = new Date(studentProgress.completionDate!);
-    
-    // Create PDF certificate
+  const generateCertificatePDF = (details: CertificateDetails) => {
     const pdf = new jsPDF({
       orientation: 'landscape',
       unit: 'mm',
       format: 'a4'
     });
 
-    // Set up the certificate design
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
-    
-    // Background
-    pdf.setFillColor(102, 126, 234, 0.1);
+
+    // Certificate background
+    pdf.setFillColor(255, 255, 255);
     pdf.rect(0, 0, pageWidth, pageHeight, 'F');
-    
-    // Border
-    pdf.setLineWidth(3);
-    pdf.setDrawColor(212, 175, 55); // Gold color
-    pdf.rect(10, 10, pageWidth - 20, pageHeight - 20);
-    
+
+    // Outer border (gold)
+    pdf.setDrawColor(212, 175, 55);
+    pdf.setLineWidth(4);
+    pdf.rect(8, 8, pageWidth - 16, pageHeight - 16);
+
     // Inner border
-    pdf.setLineWidth(1);
-    pdf.setDrawColor(200, 200, 200);
-    pdf.rect(15, 15, pageWidth - 30, pageHeight - 30);
-    
-    // Header - Learners Hub
-    pdf.setFontSize(16);
+    pdf.setDrawColor(102, 126, 234);
+    pdf.setLineWidth(2);
+    pdf.rect(12, 12, pageWidth - 24, pageHeight - 24);
+
+    // Header - Institution
+    pdf.setFontSize(18);
     pdf.setTextColor(102, 126, 234);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('🎓 Learners Hub', pageWidth / 2, 30, { align: 'center' });
-    
-    // Certificate Title
-    pdf.setFontSize(36);
-    pdf.setTextColor(102, 126, 234);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Certificate of Completion', pageWidth / 2, 55, { align: 'center' });
-    
+    pdf.text('LEARNERS HUB EDUCATIONAL INSTITUTE', pageWidth / 2, 25, { align: 'center' });
+
     // Subtitle
-    pdf.setFontSize(18);
-    pdf.setTextColor(60, 60, 60);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('This is to certify that', pageWidth / 2, 75, { align: 'center' });
-    
-    // Student Name
-    pdf.setFontSize(28);
-    pdf.setTextColor(118, 75, 162); // Purple color
-    pdf.setFont('helvetica', 'bold');
-    pdf.text(studentName, pageWidth / 2, 95, { align: 'center' });
-    
-    // Course completion text
-    pdf.setFontSize(18);
-    pdf.setTextColor(60, 60, 60);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('has successfully completed the course', pageWidth / 2, 115, { align: 'center' });
-    
-    // Course Name
-    pdf.setFontSize(24);
-    pdf.setTextColor(60, 60, 60);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text(course.title, pageWidth / 2, 135, { align: 'center' });
-    
-    // Completion Details
-    pdf.setFontSize(14);
+    pdf.setFontSize(12);
     pdf.setTextColor(100, 100, 100);
     pdf.setFont('helvetica', 'normal');
-    const completionDateStr = completionDate.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-    pdf.text(`Completion Date: ${completionDateStr}`, pageWidth / 2, 155, { align: 'center' });
-    pdf.text('Grade: Excellent (Pass)', pageWidth / 2, 165, { align: 'center' });
+    pdf.text('AICTE Approved Institution - Reg. No: AICTE/2024/ED/001', pageWidth / 2, 32, { align: 'center' });
+
+    // Certificate Title
+    pdf.setFontSize(36);
+    pdf.setTextColor(212, 175, 55);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('CERTIFICATE OF COMPLETION', pageWidth / 2, 50, { align: 'center' });
+
+    // Decorative line
+    pdf.setLineWidth(1);
+    pdf.setDrawColor(212, 175, 55);
+    pdf.line(60, 55, pageWidth - 60, 55);
+
+    // Main content
+    pdf.setFontSize(16);
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('This is to certify that', pageWidth / 2, 70, { align: 'center' });
+
+    // Student Name
+    pdf.setFontSize(28);
+    pdf.setTextColor(102, 126, 234);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(details.studentName.toUpperCase(), pageWidth / 2, 85, { align: 'center' });
+
+    // Course completion text
+    pdf.setFontSize(16);
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('has successfully completed the online course', pageWidth / 2, 100, { align: 'center' });
+
+    // Course Name
+    pdf.setFontSize(22);
+    pdf.setTextColor(102, 126, 234);
+    pdf.setFont('helvetica', 'bold');
     
-    // Signature lines
-    const signatureY = pageHeight - 40;
-    const signature1X = pageWidth / 3;
-    const signature2X = (pageWidth / 3) * 2;
+    // Handle long course names
+    const maxWidth = 200;
+    const courseNameLines = pdf.splitTextToSize(details.courseName, maxWidth);
+    if (courseNameLines.length === 1) {
+      pdf.text(details.courseName, pageWidth / 2, 115, { align: 'center' });
+    } else {
+      let yPos = 112;
+      courseNameLines.forEach((line: string) => {
+        pdf.text(line, pageWidth / 2, yPos, { align: 'center' });
+        yPos += 8;
+      });
+    }
+
+    // Course details
+    pdf.setFontSize(14);
+    pdf.setTextColor(60, 60, 60);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Duration: ${details.duration}`, pageWidth / 2, 135, { align: 'center' });
+    pdf.text(`Completion Date: ${details.completionDate}`, pageWidth / 2, 145, { align: 'center' });
+    pdf.text(`Grade: ${details.grade}`, pageWidth / 2, 155, { align: 'center' });
+
+    // Certificate ID
+    const certificateId = `LH${Date.now().toString().slice(-8)}`;
+    pdf.setFontSize(10);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(`Certificate ID: ${certificateId}`, pageWidth / 2, 165, { align: 'center' });
+
+    // Signature section
+    const signatureY = pageHeight - 35;
     
-    // Draw signature lines
+    // Left signature (Director)
     pdf.setLineWidth(0.5);
     pdf.setDrawColor(60, 60, 60);
-    pdf.line(signature1X - 40, signatureY, signature1X + 40, signatureY);
-    pdf.line(signature2X - 40, signatureY, signature2X + 40, signatureY);
-    
-    // Signature labels
-    pdf.setFontSize(10);
+    pdf.line(40, signatureY, 100, signatureY);
+    pdf.setFontSize(12);
     pdf.setTextColor(60, 60, 60);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Student Signature', signature1X, signatureY + 8, { align: 'center' });
-    pdf.text('Instructor Signature', signature2X, signatureY + 8, { align: 'center' });
-    
-    // Add verification stamp
-    pdf.setFontSize(12);
-    pdf.setTextColor(220, 38, 38);
+    pdf.text('Dr. Rajesh Kumar', 70, signatureY + 5, { align: 'center' });
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('Director', 70, signatureY + 10, { align: 'center' });
+    pdf.text('Learners Hub', 70, signatureY + 15, { align: 'center' });
+
+    // Right signature (Academic Head)
+    pdf.line(pageWidth - 100, signatureY, pageWidth - 40, signatureY);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('CERTIFIED', pageWidth - 40, 40, { align: 'center', angle: -15 });
-    pdf.text('COMPLETED', pageWidth - 40, 50, { align: 'center', angle: -15 });
-    
-    // Draw stamp circle
+    pdf.text('Prof. Sunita Sharma', pageWidth - 70, signatureY + 5, { align: 'center' });
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('Academic Head', pageWidth - 70, signatureY + 10, { align: 'center' });
+    pdf.text('AICTE Board', pageWidth - 70, signatureY + 15, { align: 'center' });
+
+    // AICTE Stamp (circular)
+    const stampX = pageWidth - 50;
+    const stampY = pageHeight - 65;
     pdf.setDrawColor(220, 38, 38);
     pdf.setLineWidth(2);
-    pdf.circle(pageWidth - 40, 45, 15, 'S');
+    pdf.circle(stampX, stampY, 18, 'S');
     
+    // Inner stamp details
+    pdf.setFontSize(8);
+    pdf.setTextColor(220, 38, 38);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('AICTE', stampX, stampY - 5, { align: 'center' });
+    pdf.text('APPROVED', stampX, stampY, { align: 'center' });
+    pdf.text('2024', stampX, stampY + 5, { align: 'center' });
+
+    // Institution Seal (square)
+    const sealX = 50;
+    const sealY = pageHeight - 65;
+    pdf.setDrawColor(102, 126, 234);
+    pdf.setLineWidth(2);
+    pdf.rect(sealX - 15, sealY - 15, 30, 30, 'S');
+    
+    pdf.setFontSize(6);
+    pdf.setTextColor(102, 126, 234);
+    pdf.text('LEARNERS', sealX, sealY - 8, { align: 'center' });
+    pdf.text('HUB', sealX, sealY - 3, { align: 'center' });
+    pdf.text('INSTITUTE', sealX, sealY + 2, { align: 'center' });
+    pdf.text('EST. 2020', sealX, sealY + 8, { align: 'center' });
+
+    // Footer note
+    pdf.setFontSize(8);
+    pdf.setTextColor(100, 100, 100);
+    pdf.setFont('helvetica', 'italic');
+    pdf.text('This certificate is digitally generated and verified. Visit www.learnershub.edu for verification.', pageWidth / 2, pageHeight - 8, { align: 'center' });
+
     // Download the PDF
-    const fileName = `${course.title}_Certificate_${studentName.replace(/\s+/g, '_')}.pdf`;
+    const fileName = `${details.courseName.replace(/[^a-zA-Z0-9]/g, '_')}_Certificate_${details.studentName.replace(/\s+/g, '_')}.pdf`;
     pdf.save(fileName);
 
+    // Save certificate to localStorage
+    const userEmail = localStorage.getItem('userEmail');
+    const existingCertificates = JSON.parse(localStorage.getItem(`studentCertificates_${userEmail}`) || '[]');
+    const newCertificate = {
+      id: certificateId,
+      courseName: details.courseName,
+      completionDate: details.completionDate,
+      duration: details.duration,
+      studentName: details.studentName,
+      grade: details.grade
+    };
+    existingCertificates.push(newCertificate);
+    localStorage.setItem(`studentCertificates_${userEmail}`, JSON.stringify(existingCertificates));
+
     toast({
-      title: "Certificate Downloaded",
-      description: "Your PDF certificate has been downloaded successfully!",
+      title: "Certificate Downloaded!",
+      description: "Your certificate has been downloaded successfully and saved to your profile.",
     });
+  };
+
+  const handleDownloadCertificate = () => {
+    generateCertificatePDF(certificateDetails);
+    setShowCertificateModal(false);
   };
 
   if (!course) {
@@ -592,11 +718,11 @@ const CoursePage = () => {
               </div>
               {studentProgress?.isCompleted && (
                 <button
-                  onClick={handleDownloadCertificate}
+                  onClick={() => setShowCertificateModal(true)}
                   className="lms-button-primary flex items-center space-x-2"
                 >
-                  <Download className="h-4 w-4" />
-                  <span>Certificate</span>
+                  <Award className="h-4 w-4" />
+                  <span>Get Certificate</span>
                 </button>
               )}
             </div>
@@ -699,19 +825,24 @@ const CoursePage = () => {
 
                 <div className="lms-card">
                   <h3 className="text-lg font-poppins font-semibold text-white mb-4">
-                    Module Assessment
+                    Module Actions
                   </h3>
-                  <p className="text-gray-400 mb-4">
-                    Complete the quiz to test your understanding and unlock the next module.
-                    You need a score of 70% or higher to pass.
-                  </p>
                   <div className="flex items-center space-x-4">
+                    {!selectedModule.isCompleted && (
+                      <button 
+                        onClick={handleCompleteModule}
+                        className="lms-button-primary flex items-center space-x-2"
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                        <span>Complete Module</span>
+                      </button>
+                    )}
                     <button 
                       onClick={handleStartQuiz}
-                      className="lms-button-primary"
+                      className="lms-button bg-lms-blue/20 text-lms-blue hover:bg-lms-blue/30"
                       disabled={selectedModule.mcqs.length === 0}
                     >
-                      {selectedModule.isCompleted ? 'Retake Quiz' : 'Start Quiz'}
+                      {selectedModule.isCompleted ? 'Retake Quiz' : 'Take Quiz'}
                     </button>
                     {selectedModule.mcqs.length > 0 && (
                       <span className="text-gray-400 text-sm">
@@ -836,6 +967,111 @@ const CoursePage = () => {
           </div>
         </div>
       </div>
+
+      {/* Certificate Modal */}
+      {showCertificateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-lms-gray rounded-xl p-6 w-full max-w-md modal-content">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-poppins font-bold text-white flex items-center space-x-2">
+                <Award className="h-6 w-6 text-lms-yellow" />
+                <span>Get Certificate</span>
+              </h3>
+              <button 
+                onClick={() => setShowCertificateModal(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">Student Name</label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={certificateDetails.studentName}
+                    onChange={(e) => setCertificateDetails(prev => ({ ...prev, studentName: e.target.value }))}
+                    className="lms-input flex-1"
+                    disabled={!isEditingCertificate}
+                  />
+                  <button
+                    onClick={() => setIsEditingCertificate(!isEditingCertificate)}
+                    className="lms-button bg-gray-600 hover:bg-gray-700 p-2"
+                  >
+                    {isEditingCertificate ? <Check className="h-4 w-4" /> : <Edit2 className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">Course Name</label>
+                <input
+                  type="text"
+                  value={certificateDetails.courseName}
+                  onChange={(e) => setCertificateDetails(prev => ({ ...prev, courseName: e.target.value }))}
+                  className="lms-input"
+                  disabled={!isEditingCertificate}
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">Duration</label>
+                <input
+                  type="text"
+                  value={certificateDetails.duration}
+                  onChange={(e) => setCertificateDetails(prev => ({ ...prev, duration: e.target.value }))}
+                  className="lms-input"
+                  disabled={!isEditingCertificate}
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">Completion Date</label>
+                <input
+                  type="text"
+                  value={certificateDetails.completionDate}
+                  onChange={(e) => setCertificateDetails(prev => ({ ...prev, completionDate: e.target.value }))}
+                  className="lms-input"
+                  disabled={!isEditingCertificate}
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">Grade</label>
+                <select
+                  value={certificateDetails.grade}
+                  onChange={(e) => setCertificateDetails(prev => ({ ...prev, grade: e.target.value }))}
+                  className="lms-input"
+                  disabled={!isEditingCertificate}
+                >
+                  <option value="Excellent">Excellent</option>
+                  <option value="Outstanding">Outstanding</option>
+                  <option value="Very Good">Very Good</option>
+                  <option value="Good">Good</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={handleDownloadCertificate}
+                className="lms-button-primary flex-1 flex items-center justify-center space-x-2"
+              >
+                <Download className="h-4 w-4" />
+                <span>Download Certificate</span>
+              </button>
+              <button
+                onClick={() => setShowCertificateModal(false)}
+                className="lms-button bg-gray-600 hover:bg-gray-700 flex-1"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
