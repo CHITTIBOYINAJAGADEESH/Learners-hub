@@ -64,10 +64,10 @@ const StudentDashboard = () => {
     
     if (course) {
       const courseIdString = numericCourseId.toString();
-      console.log('Navigating to path:', `/course/${courseIdString}`);
+      console.log('Navigating to path:', `/course-detail/${courseIdString}`);
       
       try {
-        navigate(`/course/${courseIdString}`);
+        navigate(`/course-detail/${courseIdString}`);
         console.log('Navigation successful');
       } catch (error) {
         console.error('Navigation error:', error);

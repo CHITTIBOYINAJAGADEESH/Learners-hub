@@ -20,7 +20,7 @@ const LoginPage = () => {
     try {
       // Admin login check
       if (userType === 'admin') {
-        if (email === 'admin@learnershub.com' && password === 'admin123') {
+        if (email === 'jagadeeshch2527@gmail.com' && password === 'jagga12') {
           localStorage.setItem('isLoggedIn', 'true');
           localStorage.setItem('userRole', 'admin');
           localStorage.setItem('userEmail', email);
@@ -32,7 +32,7 @@ const LoginPage = () => {
             email: email,
             role: 'admin',
             loginTime: new Date().toISOString(),
-            name: 'System Administrator'
+            name: 'Jagadeesh'
           });
           localStorage.setItem('loginHistory', JSON.stringify(loginHistory.slice(0, 50))); // Keep last 50 logins
           
@@ -187,7 +187,7 @@ const LoginPage = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="lms-input"
-              placeholder={userType === 'admin' ? 'admin@learnershub.com' : 'Enter your email'}
+              placeholder="Enter your email"
               required
             />
           </div>
@@ -203,7 +203,7 @@ const LoginPage = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="lms-input pr-10"
-                placeholder={userType === 'admin' ? 'admin123' : 'Enter your password'}
+                placeholder="Enter your password"
                 required
               />
               <button
@@ -215,16 +215,6 @@ const LoginPage = () => {
               </button>
             </div>
           </div>
-
-          {userType === 'admin' && (
-            <div className="bg-lms-purple/10 border border-lms-purple/30 rounded-lg p-3">
-              <p className="text-sm text-lms-purple">
-                <strong>Admin Credentials:</strong><br />
-                Email: admin@learnershub.com<br />
-                Password: admin123
-              </p>
-            </div>
-          )}
 
           <button
             type="submit"
