@@ -32,38 +32,61 @@ export const useStudentCourses = () => {
       const currentStudent = combinedUsers.find((user: any) => 
         user.email === userEmail && user.role === 'student'
       );
+      
+      // Convert student ID to both string and number for comparison
       const currentStudentId = currentStudent?.id;
+      const studentIdAsNumber = currentStudentId ? parseInt(currentStudentId.toString()) : null;
+      const studentIdAsString = currentStudentId ? currentStudentId.toString() : null;
       
       console.log('Current student email:', userEmail);
       console.log('Current student ID:', currentStudentId);
-      console.log('Current student object:', currentStudent);
+      console.log('Student ID as number:', studentIdAsNumber);
+      console.log('Student ID as string:', studentIdAsString);
 
-      // Filter assignments for this student using both email and ID matching
+      // Filter assignments for this student using multiple matching strategies
       const studentAssignments = courseAssignments.filter((assignment: any) => {
-        const emailMatch = assignment.studentEmail === userEmail;
-        const idMatch = currentStudentId && (
-          assignment.studentId === currentStudentId ||
-          assignment.studentId === parseInt(currentStudentId) ||
-          assignment.studentId === currentStudentId.toString()
+        // Try multiple ID matching strategies
+        const assignmentStudentId = assignment.studentId;
+        const assignmentStudentIdAsNumber = parseInt(assignmentStudentId?.toString() || '0');
+        const assignmentStudentIdAsString = assignmentStudentId?.toString();
+        
+        const idMatch = (
+          (studentIdAsNumber && assignmentStudentIdAsNumber === studentIdAsNumber) ||
+          (studentIdAsString && assignmentStudentIdAsString === studentIdAsString) ||
+          (currentStudentId && assignmentStudentId === currentStudentId)
         );
-        console.log(`Assignment check: courseId=${assignment.courseId}, studentId=${assignment.studentId}, studentEmail=${assignment.studentEmail}, emailMatch=${emailMatch}, idMatch=${idMatch}`);
-        return emailMatch || idMatch;
+        
+        console.log(`Assignment check: courseId=${assignment.courseId}, studentId=${assignmentStudentId}, idMatch=${idMatch}`);
+        return idMatch;
       });
+      
       console.log('Student assignments found:', studentAssignments);
 
       // Convert assignments to course objects with assignment info
       const assignedCoursesData = studentAssignments.map((assignment: any) => {
-        const adminCourse = adminCourses.find((course: any) => 
-          course.id === assignment.courseId || 
-          course.id === parseInt(assignment.courseId) ||
-          course.id === assignment.courseId.toString()
-        );
+        // Find the course by trying both string and number matching
+        const courseId = assignment.courseId;
+        const courseIdAsNumber = parseInt(courseId?.toString() || '0');
+        const courseIdAsString = courseId?.toString();
+        
+        const adminCourse = adminCourses.find((course: any) => {
+          const adminCourseId = course.id;
+          const adminCourseIdAsNumber = parseInt(adminCourseId?.toString() || '0');
+          const adminCourseIdAsString = adminCourseId?.toString();
+          
+          return (
+            adminCourseId === courseId ||
+            adminCourseIdAsNumber === courseIdAsNumber ||
+            adminCourseIdAsString === courseIdAsString
+          );
+        });
+        
         if (adminCourse) {
           return {
             ...adminCourse,
-            id: typeof adminCourse.id === 'string' ? parseInt(adminCourse.id) : adminCourse.id,
-            assignedBy: assignment.instructorEmail || 'System',
-            assignedAt: assignment.assignedDate
+            id: adminCourse.id,
+            assignedBy: assignment.instructorEmail || assignment.assignedBy || 'System',
+            assignedAt: assignment.assignedDate || assignment.assignedAt
           };
         }
         return null;
@@ -73,11 +96,7 @@ export const useStudentCourses = () => {
       setAssignedCourses(assignedCoursesData);
 
       // Load enrolled courses (self-enrolled)
-      const enrolledCoursesData = JSON.parse(localStorage.getItem(`enrolledCourses_${userEmail}`) || '[]')
-        .map((course: any) => ({
-          ...course,
-          id: typeof course.id === 'string' ? parseInt(course.id) : course.id
-        }));
+      const enrolledCoursesData = JSON.parse(localStorage.getItem(`enrolledCourses_${userEmail}`) || '[]');
       console.log('Enrolled courses data:', enrolledCoursesData);
       setEnrolledCourses(enrolledCoursesData);
 
@@ -114,11 +133,7 @@ export const useStudentCourses = () => {
       return;
     }
 
-    const courseToSave = {
-      ...course,
-      id: typeof course.id === 'string' ? parseInt(course.id) : course.id
-    };
-    const updatedCourses = [...currentEnrolled, courseToSave];
+    const updatedCourses = [...currentEnrolled, course];
     localStorage.setItem(`enrolledCourses_${userEmail}`, JSON.stringify(updatedCourses));
     setEnrolledCourses(updatedCourses);
     

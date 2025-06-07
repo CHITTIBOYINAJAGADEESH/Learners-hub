@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -37,22 +36,60 @@ const StudentDashboard = () => {
   } = useStudentCourses();
 
   const handleCourseNavigation = (courseId: number) => {
+    console.log('=== COURSE NAVIGATION DEBUG ===');
     console.log('Navigating to course with ID:', courseId);
-    // Convert courseId to string for navigation
-    const courseIdString = courseId.toString();
+    console.log('Course ID type:', typeof courseId);
+    console.log('My courses:', myCourses);
+    console.log('All courses:', allCourses);
     
-    // Ensure the course exists before navigating
-    const course = myCourses.find(c => c.id === courseId) || allCourses.find(c => c.id === courseId);
+    // Convert courseId to ensure it's a number
+    const numericCourseId = typeof courseId === 'string' ? parseInt(courseId) : courseId;
+    console.log('Numeric course ID:', numericCourseId);
+    
+    // Find course in both my courses and all courses
+    const courseInMyCourses = myCourses.find(c => {
+      const courseIdMatch = c.id === numericCourseId || c.id === courseId || c.id.toString() === courseId.toString();
+      console.log(`Checking my course ${c.id} (${typeof c.id}) against ${courseId} (${typeof courseId}): ${courseIdMatch}`);
+      return courseIdMatch;
+    });
+    
+    const courseInAllCourses = allCourses.find(c => {
+      const courseIdMatch = c.id === numericCourseId || c.id === courseId || c.id.toString() === courseId.toString();
+      console.log(`Checking all course ${c.id} (${typeof c.id}) against ${courseId} (${typeof courseId}): ${courseIdMatch}`);
+      return courseIdMatch;
+    });
+    
+    const course = courseInMyCourses || courseInAllCourses;
+    console.log('Found course:', course);
+    
     if (course) {
-      console.log('Course found, navigating to:', `/course/${courseIdString}`);
-      navigate(`/course/${courseIdString}`);
+      const courseIdString = numericCourseId.toString();
+      console.log('Navigating to path:', `/course/${courseIdString}`);
+      
+      try {
+        navigate(`/course/${courseIdString}`);
+        console.log('Navigation successful');
+      } catch (error) {
+        console.error('Navigation error:', error);
+        toast({
+          title: "Navigation Error",
+          description: "Failed to navigate to course. Please try again.",
+          variant: "destructive"
+        });
+      }
     } else {
-      console.error('Course not found:', courseId);
+      console.error('Course not found for ID:', courseId);
+      console.log('Available course IDs in myCourses:', myCourses.map(c => ({ id: c.id, type: typeof c.id })));
+      console.log('Available course IDs in allCourses:', allCourses.map(c => ({ id: c.id, type: typeof c.id })));
+      
       toast({
-        title: "Error",
-        description: "Course not found. Please try refreshing your courses.",
+        title: "Course Not Found",
+        description: "The course you're trying to access could not be found. Please refresh your courses and try again.",
         variant: "destructive"
       });
+      
+      // Automatically refresh courses to try to fix the issue
+      loadCourses();
     }
   };
 
