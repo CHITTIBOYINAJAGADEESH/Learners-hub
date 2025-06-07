@@ -103,7 +103,7 @@ const StudentDashboard = () => {
           return {
             ...adminCourse,
             id: parseInt(adminCourse.id), // Ensure ID is a number
-            assignedBy: assignment.instructorEmail,
+            assignedBy: assignment.instructorEmail || 'System',
             assignedAt: assignment.assignedDate
           };
         }
@@ -140,10 +140,14 @@ const StudentDashboard = () => {
 
   const handleCourseNavigation = (courseId: number) => {
     console.log('Navigating to course with ID:', courseId);
+    // Convert courseId to string for navigation
+    const courseIdString = courseId.toString();
+    
     // Ensure the course exists before navigating
     const course = myCourses.find(c => c.id === courseId) || allCourses.find(c => c.id === courseId);
     if (course) {
-      navigate(`/course/${courseId}`);
+      console.log('Course found, navigating to:', `/course/${courseIdString}`);
+      navigate(`/course/${courseIdString}`);
     } else {
       console.error('Course not found:', courseId);
       toast({
@@ -440,7 +444,7 @@ const StudentDashboard = () => {
                         alt={course.title}
                         className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
                       />
-                      {course.assignedBy && (
+                      {course.assignedBy && course.assignedBy !== 'System' && (
                         <div className="absolute top-2 right-2 px-2 py-1 bg-lms-green/20 text-lms-green rounded-full text-xs font-medium">
                           Assigned
                         </div>
@@ -467,7 +471,7 @@ const StudentDashboard = () => {
                         )}
                       </div>
                       
-                      {course.assignedBy && (
+                      {course.assignedBy && course.assignedBy !== 'System' && (
                         <p className="text-lms-green text-xs">
                           Assigned by: {course.assignedBy}
                         </p>

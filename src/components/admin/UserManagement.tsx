@@ -100,6 +100,14 @@ const UserManagement = () => {
       // Remove student progress
       localStorage.removeItem(`studentProgress_${userEmail}`);
       localStorage.removeItem(`studentCertificates_${userEmail}`);
+      localStorage.removeItem(`enrolledCourses_${userEmail}`);
+      localStorage.removeItem(`studentProfile_${userEmail}`);
+
+      // Remove from login history
+      const currentLoginHistory = JSON.parse(localStorage.getItem('loginHistory') || '[]');
+      const updatedLoginHistory = currentLoginHistory.filter((record: any) => record.email !== userEmail);
+      localStorage.setItem('loginHistory', JSON.stringify(updatedLoginHistory));
+      setLoginHistory(updatedLoginHistory);
 
       // Update state
       setUsers(updatedUsers);
