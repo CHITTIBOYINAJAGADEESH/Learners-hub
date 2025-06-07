@@ -58,6 +58,7 @@ const StudentDashboard = () => {
       
       // Load all available courses from admin
       const adminCourses = JSON.parse(localStorage.getItem('adminCourses') || '[]');
+      console.log('Admin courses loaded:', adminCourses);
       setAllCourses(adminCourses);
 
       // Load courses assigned by instructors
@@ -93,10 +94,15 @@ const StudentDashboard = () => {
 
       // Convert assignments to course objects with assignment info
       const assignedCoursesData = studentAssignments.map((assignment: any) => {
-        const adminCourse = adminCourses.find((course: any) => course.id === assignment.courseId);
+        const adminCourse = adminCourses.find((course: any) => 
+          course.id === assignment.courseId || 
+          course.id === parseInt(assignment.courseId) ||
+          course.id === assignment.courseId.toString()
+        );
         if (adminCourse) {
           return {
             ...adminCourse,
+            id: parseInt(adminCourse.id), // Ensure ID is a number
             assignedBy: assignment.instructorEmail,
             assignedAt: assignment.assignedDate
           };
@@ -108,7 +114,12 @@ const StudentDashboard = () => {
       setAssignedCourses(assignedCoursesData);
 
       // Load enrolled courses (self-enrolled)
-      const enrolledCoursesData = JSON.parse(localStorage.getItem(`enrolledCourses_${userEmail}`) || '[]');
+      const enrolledCoursesData = JSON.parse(localStorage.getItem(`enrolledCourses_${userEmail}`) || '[]')
+        .map((course: any) => ({
+          ...course,
+          id: parseInt(course.id) // Ensure ID is a number
+        }));
+      console.log('Enrolled courses data:', enrolledCoursesData);
       setEnrolledCourses(enrolledCoursesData);
 
       toast({
@@ -127,31 +138,21 @@ const StudentDashboard = () => {
     }
   };
 
-  useEffect(() => {
-    // Check if user is logged in as student
-    const userRole = localStorage.getItem('userRole');
-    const isLoggedIn = localStorage.getItem('isLoggedIn');
-    
-    if (!isLoggedIn || userRole !== 'student') {
-      navigate('/login');
-      return;
+  const handleCourseNavigation = (courseId: number) => {
+    console.log('Navigating to course with ID:', courseId);
+    // Ensure the course exists before navigating
+    const course = myCourses.find(c => c.id === courseId) || allCourses.find(c => c.id === courseId);
+    if (course) {
+      navigate(`/course/${courseId}`);
+    } else {
+      console.error('Course not found:', courseId);
+      toast({
+        title: "Error",
+        description: "Course not found. Please try refreshing your courses.",
+        variant: "destructive"
+      });
     }
-
-    loadCourses();
-
-    // Load user profile
-    const userEmail = localStorage.getItem('userEmail');
-    const savedProfile = localStorage.getItem(`studentProfile_${userEmail}`);
-    if (savedProfile) {
-      setUserProfile(JSON.parse(savedProfile));
-    }
-
-    // Load certificates
-    const savedCertificates = localStorage.getItem(`studentCertificates_${userEmail}`);
-    if (savedCertificates) {
-      setCertificates(JSON.parse(savedCertificates));
-    }
-  }, [navigate]);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('userRole');
@@ -181,7 +182,11 @@ const StudentDashboard = () => {
       return;
     }
 
-    const updatedCourses = [...currentEnrolled, course];
+    const courseToSave = {
+      ...course,
+      id: parseInt(course.id) // Ensure ID is a number
+    };
+    const updatedCourses = [...currentEnrolled, courseToSave];
     localStorage.setItem(`enrolledCourses_${userEmail}`, JSON.stringify(updatedCourses));
     setEnrolledCourses(updatedCourses);
     
@@ -307,6 +312,32 @@ const StudentDashboard = () => {
       description: "Your certificate has been downloaded successfully.",
     });
   };
+
+  useEffect(() => {
+    // Check if user is logged in as student
+    const userRole = localStorage.getItem('userRole');
+    const isLoggedIn = localStorage.getItem('isLoggedIn');
+    
+    if (!isLoggedIn || userRole !== 'student') {
+      navigate('/login');
+      return;
+    }
+
+    loadCourses();
+
+    // Load user profile
+    const userEmail = localStorage.getItem('userEmail');
+    const savedProfile = localStorage.getItem(`studentProfile_${userEmail}`);
+    if (savedProfile) {
+      setUserProfile(JSON.parse(savedProfile));
+    }
+
+    // Load certificates
+    const savedCertificates = localStorage.getItem(`studentCertificates_${userEmail}`);
+    if (savedCertificates) {
+      setCertificates(JSON.parse(savedCertificates));
+    }
+  }, [navigate]);
 
   return (
     <div className="min-h-screen bg-lms-dark">
@@ -442,12 +473,12 @@ const StudentDashboard = () => {
                         </p>
                       )}
                       
-                      <Link
-                        to={`/course/${course.id}`}
+                      <button
+                        onClick={() => handleCourseNavigation(course.id)}
                         className="block w-full lms-button-primary text-center"
                       >
                         Continue Learning
-                      </Link>
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -501,12 +532,12 @@ const StudentDashboard = () => {
                       </div>
                       
                       {isEnrolled ? (
-                        <Link
-                          to={`/course/${course.id}`}
+                        <button
+                          onClick={() => handleCourseNavigation(course.id)}
                           className="block w-full lms-button bg-lms-green/20 text-lms-green hover:bg-lms-green/30 text-center"
                         >
                           Continue Learning
-                        </Link>
+                        </button>
                       ) : (
                         <button
                           onClick={() => handleEnrollInCourse(course)}
