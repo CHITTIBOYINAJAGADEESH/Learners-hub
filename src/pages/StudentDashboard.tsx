@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BookOpen, ArrowLeft, Plus, Upload, User, Mail, Calendar, Award, RefreshCw, Download, Edit2, Check } from 'lucide-react';
@@ -102,7 +103,7 @@ const StudentDashboard = () => {
         if (adminCourse) {
           return {
             ...adminCourse,
-            id: parseInt(adminCourse.id), // Ensure ID is a number
+            id: typeof adminCourse.id === 'string' ? parseInt(adminCourse.id) : adminCourse.id,
             assignedBy: assignment.instructorEmail || 'System',
             assignedAt: assignment.assignedDate
           };
@@ -117,7 +118,7 @@ const StudentDashboard = () => {
       const enrolledCoursesData = JSON.parse(localStorage.getItem(`enrolledCourses_${userEmail}`) || '[]')
         .map((course: any) => ({
           ...course,
-          id: parseInt(course.id) // Ensure ID is a number
+          id: typeof course.id === 'string' ? parseInt(course.id) : course.id
         }));
       console.log('Enrolled courses data:', enrolledCoursesData);
       setEnrolledCourses(enrolledCoursesData);
@@ -188,7 +189,7 @@ const StudentDashboard = () => {
 
     const courseToSave = {
       ...course,
-      id: parseInt(course.id) // Ensure ID is a number
+      id: typeof course.id === 'string' ? parseInt(course.id) : course.id
     };
     const updatedCourses = [...currentEnrolled, courseToSave];
     localStorage.setItem(`enrolledCourses_${userEmail}`, JSON.stringify(updatedCourses));
