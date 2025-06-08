@@ -1,71 +1,198 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Clock, User, Play } from 'lucide-react';
-import { Course } from '@/types/student';
 import { useToast } from '@/hooks/use-toast';
+import { ArrowLeft, CheckCircle, Play, Award } from 'lucide-react';
+import { Course, Certificate } from '@/types/student';
+
+interface Module {
+  id: number;
+  title: string;
+  description: string;
+  duration: string;
+  completed: boolean;
+}
 
 const CourseDetailPage = () => {
-  const { courseId } = useParams<{ courseId: string }>();
+  const { courseId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [course, setCourse] = useState<Course | null>(null);
+  const [modules, setModules] = useState<Module[]>([]);
+  const [completedModules, setCompletedModules] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    console.log('CourseDetailPage mounted with courseId:', courseId);
+    loadCourseData();
+  }, [courseId]);
+
+  const loadCourseData = () => {
+    console.log('Loading course data for ID:', courseId);
     
-    if (!courseId) {
-      toast({
-        title: "Error",
-        description: "No course ID provided",
-        variant: "destructive"
+    try {
+      const userEmail = localStorage.getItem('userEmail');
+      
+      // Load all courses (both admin courses and enrolled courses)
+      const adminCourses = JSON.parse(localStorage.getItem('adminCourses') || '[]');
+      const enrolledCourses = JSON.parse(localStorage.getItem(`enrolledCourses_${userEmail}`) || '[]');
+      
+      // Also check course assignments
+      const courseAssignments = JSON.parse(localStorage.getItem('courseAssignments') || '[]');
+      const allUsers = JSON.parse(localStorage.getItem('users') || '[]');
+      const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+      const combinedUsers = [...allUsers, ...registeredUsers];
+      
+      const currentStudent = combinedUsers.find((user: any) => 
+        user.email === userEmail && user.role === 'student'
+      );
+      
+      // Get assigned courses
+      const studentAssignments = courseAssignments.filter((assignment: any) => {
+        const assignmentStudentId = assignment.studentId;
+        const currentStudentId = currentStudent?.id;
+        return currentStudentId && (
+          assignmentStudentId === currentStudentId ||
+          assignmentStudentId.toString() === currentStudentId.toString()
+        );
       });
-      navigate('/student');
-      return;
-    }
-
-    const loadCourse = () => {
-      try {
-        // Get all available courses
-        const adminCourses = JSON.parse(localStorage.getItem('adminCourses') || '[]');
-        console.log('Looking for course in admin courses:', adminCourses);
+      
+      const assignedCourses = studentAssignments.map((assignment: any) => {
+        const adminCourse = adminCourses.find((course: any) => 
+          course.id.toString() === assignment.courseId.toString()
+        );
+        return adminCourse ? { ...adminCourse, assignedBy: assignment.instructorEmail } : null;
+      }).filter(Boolean);
+      
+      // Combine all available courses
+      const allCourses = [...adminCourses, ...enrolledCourses, ...assignedCourses];
+      
+      console.log('All available courses:', allCourses);
+      console.log('Looking for course with ID:', courseId);
+      
+      // Find the specific course
+      const foundCourse = allCourses.find((c: Course) => 
+        c.id.toString() === courseId?.toString()
+      );
+      
+      console.log('Found course:', foundCourse);
+      
+      if (foundCourse) {
+        setCourse(foundCourse);
         
-        // Find course by ID (handle both string and number IDs)
-        const numericCourseId = parseInt(courseId);
-        const foundCourse = adminCourses.find((c: Course) => {
-          const courseIdMatch = c.id === numericCourseId || c.id.toString() === courseId;
-          console.log(`Checking course ${c.id} against ${courseId}: ${courseIdMatch}`);
-          return courseIdMatch;
-        });
-
-        if (foundCourse) {
-          console.log('Course found:', foundCourse);
-          setCourse(foundCourse);
-        } else {
-          console.error('Course not found for ID:', courseId);
-          toast({
-            title: "Course Not Found",
-            description: "The course you're looking for could not be found.",
-            variant: "destructive"
-          });
-          navigate('/student');
-        }
-      } catch (error) {
-        console.error('Error loading course:', error);
+        // Generate sample modules based on course
+        const sampleModules: Module[] = Array.from({ length: foundCourse.modules || 5 }, (_, index) => ({
+          id: index + 1,
+          title: `Module ${index + 1}: ${getModuleTitle(foundCourse.title, index)}`,
+          description: `Learn about ${getModuleTitle(foundCourse.title, index).toLowerCase()}`,
+          duration: `${Math.floor(Math.random() * 3) + 1} hours`,
+          completed: false
+        }));
+        
+        setModules(sampleModules);
+        
+        // Load completed modules from localStorage
+        const completedKey = `completedModules_${userEmail}_${courseId}`;
+        const completed = JSON.parse(localStorage.getItem(completedKey) || '[]');
+        setCompletedModules(completed);
+        
+        // Update module completion status
+        setModules(prev => prev.map(module => ({
+          ...module,
+          completed: completed.includes(module.id)
+        })));
+      } else {
         toast({
-          title: "Error",
-          description: "Failed to load course details.",
+          title: "Course Not Found",
+          description: "The course you're looking for could not be found.",
           variant: "destructive"
         });
         navigate('/student');
-      } finally {
-        setIsLoading(false);
       }
-    };
+    } catch (error) {
+      console.error('Error loading course data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load course data.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    loadCourse();
-  }, [courseId, navigate, toast]);
+  const getModuleTitle = (courseTitle: string, index: number) => {
+    const commonModules = [
+      'Introduction and Basics',
+      'Core Concepts',
+      'Practical Applications',
+      'Advanced Topics',
+      'Project Work',
+      'Best Practices',
+      'Real-world Examples',
+      'Final Assessment'
+    ];
+    
+    if (courseTitle.toLowerCase().includes('programming')) {
+      return ['Variables and Data Types', 'Control Structures', 'Functions', 'Object-Oriented Programming', 'Error Handling'][index] || commonModules[index];
+    } else if (courseTitle.toLowerCase().includes('web')) {
+      return ['HTML Fundamentals', 'CSS Styling', 'JavaScript Basics', 'Responsive Design', 'Frameworks'][index] || commonModules[index];
+    } else if (courseTitle.toLowerCase().includes('data')) {
+      return ['Data Collection', 'Data Cleaning', 'Analysis Techniques', 'Visualization', 'Interpretation'][index] || commonModules[index];
+    }
+    
+    return commonModules[index] || `Topic ${index + 1}`;
+  };
+
+  const handleModuleComplete = (moduleId: number) => {
+    const userEmail = localStorage.getItem('userEmail');
+    const completedKey = `completedModules_${userEmail}_${courseId}`;
+    
+    const newCompleted = [...completedModules, moduleId];
+    setCompletedModules(newCompleted);
+    localStorage.setItem(completedKey, JSON.stringify(newCompleted));
+    
+    // Update module status
+    setModules(prev => prev.map(module => 
+      module.id === moduleId ? { ...module, completed: true } : module
+    ));
+    
+    toast({
+      title: "Module Completed!",
+      description: `You've successfully completed ${modules.find(m => m.id === moduleId)?.title}`,
+    });
+    
+    // Check if all modules are completed
+    if (newCompleted.length === modules.length) {
+      generateCertificate();
+    }
+  };
+
+  const generateCertificate = () => {
+    const userEmail = localStorage.getItem('userEmail');
+    const userProfile = JSON.parse(localStorage.getItem(`studentProfile_${userEmail}`) || '{}');
+    
+    const certificate: Certificate = {
+      id: `cert_${Date.now()}`,
+      courseName: course?.title || 'Course',
+      completionDate: new Date().toLocaleDateString(),
+      duration: `${modules.length * 2} hours`, // Estimated duration
+      studentName: userProfile.name || 'Student',
+      grade: 'A' // Default grade
+    };
+    
+    // Save certificate
+    const certificatesKey = `studentCertificates_${userEmail}`;
+    const existingCertificates = JSON.parse(localStorage.getItem(certificatesKey) || '[]');
+    const updatedCertificates = [...existingCertificates, certificate];
+    localStorage.setItem(certificatesKey, JSON.stringify(updatedCertificates));
+    
+    toast({
+      title: "🎉 Congratulations!",
+      description: "You've completed the course and earned a certificate! Check your Certificates tab to download it.",
+    });
+  };
+
+  const progressPercentage = modules.length > 0 ? (completedModules.length / modules.length) * 100 : 0;
 
   if (isLoading) {
     return (
@@ -78,15 +205,7 @@ const CourseDetailPage = () => {
   if (!course) {
     return (
       <div className="min-h-screen bg-lms-dark flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl text-white mb-4">Course Not Found</h2>
-          <button
-            onClick={() => navigate('/student')}
-            className="lms-button-primary"
-          >
-            Back to Dashboard
-          </button>
-        </div>
+        <div className="text-white">Course not found</div>
       </div>
     );
   }
@@ -94,138 +213,135 @@ const CourseDetailPage = () => {
   return (
     <div className="min-h-screen bg-lms-dark">
       {/* Header */}
-      <div className="bg-lms-card border-b border-gray-700">
+      <div className="bg-lms-dark-lighter border-b border-gray-700">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate('/student')}
-              className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors"
+              className="text-gray-400 hover:text-white transition-colors"
             >
-              <ArrowLeft className="h-5 w-5" />
-              <span>Back to Dashboard</span>
+              <ArrowLeft className="h-6 w-6" />
             </button>
+            <div>
+              <h1 className="text-2xl font-poppins font-bold text-white">{course.title}</h1>
+              <p className="text-gray-400">{course.description}</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Course Content */}
       <div className="container mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Course Header */}
-            <div className="lms-card">
-              <div className="relative overflow-hidden rounded-lg mb-6">
-                <img
-                  src={course.image}
-                  alt={course.title}
-                  className="w-full h-64 object-cover"
-                />
+          {/* Course Content */}
+          <div className="lg:col-span-2">
+            <div className="lms-card mb-6">
+              <h2 className="text-xl font-poppins font-bold text-white mb-4">Course Progress</h2>
+              <div className="w-full bg-gray-700 rounded-full h-2 mb-4">
+                <div
+                  className="bg-lms-green h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${progressPercentage}%` }}
+                ></div>
               </div>
-              
-              <h1 className="text-3xl font-poppins font-bold text-white mb-4">
-                {course.title}
-              </h1>
-              
-              <p className="text-gray-300 text-lg leading-relaxed mb-6">
-                {course.description}
+              <p className="text-gray-300 text-sm">
+                {completedModules.length} of {modules.length} modules completed ({Math.round(progressPercentage)}%)
               </p>
-
-              <div className="flex items-center space-x-6 text-sm text-gray-400">
-                <div className="flex items-center space-x-2">
-                  <BookOpen className="h-4 w-4" />
-                  <span>{course.modules} modules</span>
-                </div>
-                {course.instructor && (
-                  <div className="flex items-center space-x-2">
-                    <User className="h-4 w-4" />
-                    <span>Instructor: {course.instructor}</span>
-                  </div>
-                )}
-              </div>
             </div>
 
-            {/* Course Modules */}
-            <div className="lms-card">
-              <h2 className="text-xl font-poppins font-bold text-white mb-4">
-                Course Modules
-              </h2>
-              
-              <div className="space-y-3">
-                {Array.from({ length: course.modules }, (_, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between p-4 bg-lms-dark rounded-lg border border-gray-700"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-lms-blue/20 text-lms-blue rounded-full flex items-center justify-center text-sm font-medium">
-                        {i + 1}
+            <div className="space-y-4">
+              <h2 className="text-xl font-poppins font-bold text-white">Course Modules</h2>
+              {modules.map((module) => (
+                <div key={module.id} className="lms-card">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        module.completed 
+                          ? 'bg-lms-green text-white' 
+                          : 'bg-gray-600 text-gray-300'
+                      }`}>
+                        {module.completed ? (
+                          <CheckCircle className="h-5 w-5" />
+                        ) : (
+                          <span>{module.id}</span>
+                        )}
                       </div>
                       <div>
-                        <h3 className="text-white font-medium">
-                          Module {i + 1}: Course Content
+                        <h3 className="text-lg font-poppins font-semibold text-white">
+                          {module.title}
                         </h3>
-                        <p className="text-gray-400 text-sm">
-                          Learn the fundamentals and advanced concepts
-                        </p>
+                        <p className="text-gray-400 text-sm">{module.description}</p>
+                        <p className="text-gray-500 text-xs">{module.duration}</p>
                       </div>
                     </div>
                     
-                    <button className="flex items-center space-x-2 text-lms-blue hover:text-blue-400 transition-colors">
-                      <Play className="h-4 w-4" />
-                      <span className="text-sm">Start</span>
-                    </button>
+                    {!module.completed && (
+                      <button
+                        onClick={() => handleModuleComplete(module.id)}
+                        className="lms-button bg-lms-blue/20 text-lms-blue hover:bg-lms-blue/30 flex items-center space-x-2"
+                      >
+                        <Play className="h-4 w-4" />
+                        <span>Start</span>
+                      </button>
+                    )}
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Sidebar */}
+          {/* Course Info Sidebar */}
           <div className="space-y-6">
-            {/* Course Info */}
             <div className="lms-card">
-              <h3 className="text-lg font-poppins font-bold text-white mb-4">
-                Course Information
-              </h3>
-              
-              <div className="space-y-3">
-                <div className="flex items-center space-x-3">
-                  <Clock className="h-4 w-4 text-gray-400" />
-                  <span className="text-gray-300">Self-paced learning</span>
+              <img
+                src={course.image}
+                alt={course.title}
+                className="w-full h-48 object-cover rounded-lg mb-4"
+              />
+              <h3 className="text-lg font-poppins font-bold text-white mb-2">Course Information</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Modules:</span>
+                  <span className="text-white">{modules.length}</span>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <BookOpen className="h-4 w-4 text-gray-400" />
-                  <span className="text-gray-300">{course.modules} modules</span>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Duration:</span>
+                  <span className="text-white">{modules.length * 2} hours</span>
                 </div>
                 {course.instructor && (
-                  <div className="flex items-center space-x-3">
-                    <User className="h-4 w-4 text-gray-400" />
-                    <span className="text-gray-300">{course.instructor}</span>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Instructor:</span>
+                    <span className="text-white">{course.instructor}</span>
+                  </div>
+                )}
+                {course.assignedBy && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Assigned by:</span>
+                    <span className="text-lms-green">{course.assignedBy}</span>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Progress */}
-            <div className="lms-card">
-              <h3 className="text-lg font-poppins font-bold text-white mb-4">
-                Your Progress
-              </h3>
-              
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Completed</span>
-                  <span className="text-white">0%</span>
+            {progressPercentage === 100 && (
+              <div className="lms-card bg-lms-green/10 border-lms-green/20">
+                <div className="flex items-center space-x-3 mb-3">
+                  <Award className="h-8 w-8 text-lms-green" />
+                  <div>
+                    <h3 className="text-lg font-poppins font-bold text-lms-green">
+                      Course Completed!
+                    </h3>
+                    <p className="text-green-300 text-sm">
+                      Certificate available in your profile
+                    </p>
+                  </div>
                 </div>
-                <div className="w-full bg-gray-700 rounded-full h-2">
-                  <div className="bg-lms-blue h-2 rounded-full" style={{ width: '0%' }}></div>
-                </div>
-                <p className="text-gray-400 text-sm">
-                  Start your learning journey!
-                </p>
+                <button
+                  onClick={() => navigate('/student?tab=certificates')}
+                  className="w-full lms-button bg-lms-green/20 text-lms-green hover:bg-lms-green/30"
+                >
+                  View Certificate
+                </button>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

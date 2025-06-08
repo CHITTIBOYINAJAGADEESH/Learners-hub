@@ -12,6 +12,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import InstructorDashboard from "./pages/InstructorDashboard";
 import StudentDashboard from "./pages/StudentDashboard";
 import CoursePage from "./pages/CoursePage";
+import CourseDetailPage from "./pages/CourseDetailPage";
 import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
 
@@ -32,6 +33,7 @@ const App = () => (
           <Route path="/instructor" element={<InstructorDashboard />} />
           <Route path="/student" element={<StudentDashboard />} />
           <Route path="/course/:id" element={<CoursePage />} />
+          <Route path="/course-detail/:courseId" element={<CourseDetailPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

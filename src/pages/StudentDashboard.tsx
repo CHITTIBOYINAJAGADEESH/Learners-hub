@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 import { UserProfile, Certificate } from '@/types/student';
@@ -13,6 +13,7 @@ import { ProfileTab } from '@/components/student/ProfileTab';
 import { ProfileEditModal } from '@/components/student/ProfileEditModal';
 
 const StudentDashboard = () => {
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('courses');
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
@@ -34,6 +35,14 @@ const StudentDashboard = () => {
     loadCourses,
     handleEnrollInCourse
   } = useStudentCourses();
+
+  // Handle URL parameters for tab navigation
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['courses', 'browse', 'certificates', 'profile'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   const handleCourseNavigation = (courseId: number) => {
     console.log('=== COURSE NAVIGATION DEBUG ===');
