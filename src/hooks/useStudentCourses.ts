@@ -143,7 +143,16 @@ export const useStudentCourses = () => {
     });
   }, [assignedCourses, toast]);
 
-  const myCourses = [...enrolledCourses, ...assignedCourses];
+  // Remove duplicates by combining courses and filtering by unique IDs
+  const combinedCourses = [...enrolledCourses, ...assignedCourses];
+  const uniqueCourseIds = new Set();
+  const myCourses = combinedCourses.filter(course => {
+    if (uniqueCourseIds.has(course.id)) {
+      return false; // Skip duplicate
+    }
+    uniqueCourseIds.add(course.id);
+    return true;
+  });
 
   return {
     enrolledCourses,

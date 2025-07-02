@@ -150,73 +150,49 @@ const StudentDashboard = () => {
     pdf.setFillColor(255, 255, 255);
     pdf.rect(0, 0, 297, 210, 'F');
 
-    // Border
+    // Simple border
     pdf.setDrawColor(0, 51, 102);
-    pdf.setLineWidth(3);
-    pdf.rect(10, 10, 277, 190);
-    
-    // Inner border
-    pdf.setLineWidth(1);
-    pdf.rect(15, 15, 267, 180);
+    pdf.setLineWidth(2);
+    pdf.rect(20, 20, 257, 170);
 
     // Header
-    pdf.setFontSize(32);
+    pdf.setFontSize(28);
     pdf.setTextColor(0, 51, 102);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('CERTIFICATE OF COMPLETION', 148.5, 40, { align: 'center' });
+    pdf.text('CERTIFICATE OF COMPLETION', 148.5, 50, { align: 'center' });
 
-    // Decorative line
-    pdf.setLineWidth(2);
-    pdf.setDrawColor(255, 215, 0);
-    pdf.line(50, 50, 247, 50);
+    // Simple decorative line
+    pdf.setLineWidth(1);
+    pdf.setDrawColor(200, 200, 200);
+    pdf.line(60, 60, 237, 60);
 
     // Main content
-    pdf.setFontSize(16);
+    pdf.setFontSize(14);
     pdf.setTextColor(0, 0, 0);
     pdf.setFont('helvetica', 'normal');
-    pdf.text('This is to certify that', 148.5, 70, { align: 'center' });
+    pdf.text('This is to certify that', 148.5, 80, { align: 'center' });
 
-    pdf.setFontSize(24);
+    pdf.setFontSize(22);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(0, 51, 102);
-    pdf.text(certificate.studentName, 148.5, 90, { align: 'center' });
+    pdf.text(certificate.studentName, 148.5, 100, { align: 'center' });
 
-    pdf.setFontSize(16);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(0, 0, 0);
-    pdf.text('has successfully completed the course', 148.5, 110, { align: 'center' });
-
-    pdf.setFontSize(20);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(0, 51, 102);
-    pdf.text(certificate.courseName, 148.5, 130, { align: 'center' });
-
-    // Course details
     pdf.setFontSize(14);
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor(0, 0, 0);
-    pdf.text(`Duration: ${certificate.duration}`, 148.5, 150, { align: 'center' });
-    pdf.text(`Completion Date: ${certificate.completionDate}`, 148.5, 165, { align: 'center' });
+    pdf.text('has successfully completed the course', 148.5, 120, { align: 'center' });
 
-    // Signature section
+    pdf.setFontSize(18);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(0, 51, 102);
+    pdf.text(certificate.courseName, 148.5, 140, { align: 'center' });
+
+    // Course details
     pdf.setFontSize(12);
-    pdf.text('Authorized Signature', 60, 185, { align: 'center' });
-    pdf.text('Director', 60, 190, { align: 'center' });
-    
-    // Signature line
-    pdf.setLineWidth(0.5);
-    pdf.setDrawColor(0, 0, 0);
-    pdf.line(30, 180, 90, 180);
-
-    // AICTE stamp area
-    pdf.setFontSize(10);
-    pdf.text('AICTE Approved', 230, 185, { align: 'center' });
-    pdf.text('Institution', 230, 190, { align: 'center' });
-    
-    // Stamp outline
-    pdf.setDrawColor(0, 51, 102);
-    pdf.setLineWidth(1);
-    pdf.circle(230, 175, 15, 'D');
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(`Duration: ${certificate.duration}`, 148.5, 160, { align: 'center' });
+    pdf.text(`Completion Date: ${certificate.completionDate}`, 148.5, 175, { align: 'center' });
 
     // Save the PDF
     pdf.save(`${certificate.courseName}_Certificate.pdf`);

@@ -175,9 +175,9 @@ const CourseDetailPage = () => {
       id: `cert_${Date.now()}`,
       courseName: course?.title || 'Course',
       completionDate: new Date().toLocaleDateString(),
-      duration: `${modules.length * 2} hours`, // Estimated duration
+      duration: `${modules.length * 2} hours`,
       studentName: userProfile.name || 'Student',
-      grade: 'A' // Default grade
+      grade: 'A'
     };
     
     // Save certificate
