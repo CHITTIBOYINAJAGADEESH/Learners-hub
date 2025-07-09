@@ -1,73 +1,57 @@
-# Welcome to your Lovable project
+# 🎓 Learners Hub
 
-## Project info
+**Learners Hub** is a full-featured online learning platform designed for students, instructors, and administrators. It provides a smooth, interactive experience from course management to certificate generation.
 
-**URL**: https://lovable.dev/projects/ea7138fc-816b-411e-b523-f05fd60cdd51
+## 🌐 Project Overview
 
-## How can I edit this code?
+Learners Hub is a web-based e-learning platform built to simplify digital education through three main user roles:
 
-There are several ways of editing your application.
+- **Admin**
+- **Instructor**
+- **Student**
 
-**Use Lovable**
+Each role has a separate login and dashboard, with dynamic interfaces and real-time operations.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/ea7138fc-816b-411e-b523-f05fd60cdd51) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🚀 Features
 
-**Use your preferred IDE**
+### 🔐 Authentication & Dashboard
+- Separate login portals for Admin, Instructor, and Student.
+- Individual dashboards with editable profiles and profile picture uploads.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### 👩‍💼 Admin Panel
+- View a list of all user logins (students and instructors).
+- Add, delete, and manage courses.
+- Assign courses to specific instructors.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### 🧑‍🏫 Instructor Panel
+- View assigned courses from admin.
+- Assign courses to specific students.
+- Monitor student access and progress.
 
-Follow these steps:
+### 👨‍🎓 Student Panel
+- View and access only the courses assigned by instructors.
+- Continue learning module by module.
+- Get certified upon completion.
+- Download an animated certificate.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### 🎨 UI/UX
+- Fully responsive and animated design.
+- Smooth transitions, user-friendly navigation.
+- Custom profile dashboard for each role.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## 🖥️ Installation & Setup
 
-# Step 3: Install the necessary dependencies.
-npm i
+```bash
+# Step 1: Clone the repository
+git clone <your_repo_url>
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Step 2: Navigate to the project directory
+cd learners-hub
+
+# Step 3: Install dependencies
+npm install
+
+# Step 4: Start the development server
 npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/ea7138fc-816b-411e-b523-f05fd60cdd51) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
